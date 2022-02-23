@@ -1,0 +1,4 @@
+numpy
+packaging
+pytest
+pytest-cov
