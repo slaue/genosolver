@@ -1,6 +1,6 @@
 # The GENO solver
 
-[![Build Status](https://app.travis-ci.com/slaue/genosolver.svg?token=6e4Ji9xEp8uDra4uHsxu&branch=main)](https://travis-ci.com/slaue/genosolver)
+[![Build Status](https://app.travis-ci.com/slaue/genosolver.svg?branch=master)](https://app.travis-ci.com/slaue/genosolver)
 
 GENO is a solver for non-linear optimization problems. It can solve constrained and unconstrained problems. It is fully written in Python with no dependencies and it can run on the CPU and on the GPU.
 
