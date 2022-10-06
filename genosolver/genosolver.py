@@ -94,7 +94,6 @@ class LBFGSB:
         self.set_options(options)
         self.init_matrices()
         self.working = np.full(self.n, 1.0)
-        self.inf_array = np.full(self.n, np.inf)
 
     def all_options(self):
         return {'verbose', 'max_iter', 'step_max', 'max_ls',
@@ -155,8 +154,10 @@ class LBFGSB:
     def max_step_size(self, x, d):
         np = self.np
         if self.constrained:
-            step_ub = np.divide(self.ub - x, d, out=self.inf_array, where=d>0)
-            step_lb = np.divide(self.lb - x, d, out=self.inf_array, where=d<0)
+            step_ub = np.full(self.n, np.inf)
+            step_lb = np.full(self.n, np.inf)
+            step_ub = np.divide(self.ub - x, d, out=step_ub, where=d>0)
+            step_lb = np.divide(self.lb - x, d, out=step_lb, where=d<0)
             step_max = min(np.min(step_ub), np.min(step_lb))
         else:
             step_max = np.inf
