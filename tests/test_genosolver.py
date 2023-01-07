@@ -41,7 +41,7 @@ def test_unconstrained0():
         g = 2 * x
         return f, g
 
-    res = minimize(fg, 100.)
+    res = minimize(fg, 100., np=np)
     print(res)
     assert_allclose(res.x, [0], atol=1E-4)
 
@@ -53,7 +53,7 @@ def test_unconstrained1():
 
     x0 = np.ones(5)
     xOpt = -0.5*x0
-    res = minimize(fg, x0)
+    res = minimize(fg, x0, np=np)
     assert_allclose(res.x, xOpt, atol=1E-4)
 
 def test_unconstrained2():
@@ -68,7 +68,7 @@ def test_unconstrained2():
     x0 = np.ones(n)
     c = np.arange(n)
     xOpt = -0.5*c
-    res = minimize(fg, x0)
+    res = minimize(fg, x0, np=np)
     assert_allclose(res.x, xOpt, atol=1E-4)
 
 def test_bound_constrained0():
@@ -89,7 +89,7 @@ def test_bound_constrained0():
     ub = [1] * n
     xOpt = -0.5*c
     xOpt[:n2] = 0
-    res = minimize(fg, x0, lb=lb, ub=ub)
+    res = minimize(fg, x0, lb=lb, ub=ub, np=np)
     assert_allclose(res.x, xOpt, atol=1E-4)
 
 
@@ -112,23 +112,23 @@ def test_bound_constrained1():
                'ls' : 0}
 
     x0 = np.zeros(3)
-    res = minimize(fg1, x0, options=options)
+    res = minimize(fg1, x0, options=options, np=np)
     assert_allclose(res.x, np.array([-1, -1.5, -1]), atol=1E-4)
 
     x0 = np.zeros(3)
     lb = np.full(3, -1.)
     ub = np.full(3, 5)
-    res = minimize(fg1, x0, lb=lb, ub=ub)
+    res = minimize(fg1, x0, lb=lb, ub=ub, np=np)
     assert_allclose(res.x, np.array([-1, -1, -1]), atol=1E-4)
 
     lb = np.full(3, -1.2)
     ub = np.full(3, 5)
-    res = minimize(fg1, x0, lb=lb, ub=ub)
+    res = minimize(fg1, x0, lb=lb, ub=ub, np=np)
     assert_allclose(res.x, np.array([-1, -1.2, -1]), atol=1E-4)
 
     lb = np.full(3, -2)
     ub = np.full(3, 5)
-    res = minimize(fg1, x0, lb=lb, ub=ub)
+    res = minimize(fg1, x0, lb=lb, ub=ub, np=np)
     assert_allclose(res.x, np.array([-1, -1.5, -1]), atol=1E-4)
 
 
@@ -167,20 +167,20 @@ def test_constrained0():
               }
     n = 4
     x0 = np.zeros(n)
-    res = minimize(fg, x0, constraints=constraints, options=options)
+    res = minimize(fg, x0, constraints=constraints, options=options, np=np)
     assert_allclose(res.x, np.array([1., 0.5, 0, -0.5]), atol=1E-4)
 
     lb = np.full(n, 0)
     ub = np.full(n, 1)
-    res = minimize(fg, x0, lb=lb, ub=ub, constraints=constraints, options=options)
+    res = minimize(fg, x0, lb=lb, ub=ub, constraints=constraints, options=options, np=np)
     assert_allclose(res.x, np.array([0.75, 0.25, 0, 0]), atol=1E-4)
 
     lb = np.full(n, -0.2)
-    res = minimize(fg, x0, lb=lb, constraints=constraints, options=options)
+    res = minimize(fg, x0, lb=lb, constraints=constraints, options=options, np=np)
     assert_allclose(res.x, np.array([0.9, 0.4, -0.1, -0.2]), atol=1E-4)
 
     ub = np.full(n, 0.5)
-    res = minimize(fg, x0, ub=ub, constraints=constraints, options=options)
+    res = minimize(fg, x0, ub=ub, constraints=constraints, options=options, np=np)
     assert_allclose(res.x, np.array([0.5, 0.5, 0.25, -0.25]), atol=1E-4)
 
 
@@ -192,7 +192,7 @@ def test_infeasible_bounds():
     x0 = np.ones(n)
     lb = np.full(n, 1)
     ub = np.full(n, 0)
-    res = minimize(fg, x0, lb, ub)
+    res = minimize(fg, x0, lb, ub, np=np)
     assert not res.success
 
 
@@ -225,7 +225,7 @@ def test_infeasible_constrained():
     x0 = np.ones(n)
     lb = np.full(n, 0)
     ub = np.full(n, 0.2)
-    res = minimize(fg, x0, lb=lb, ub=ub, constraints=constraints)
+    res = minimize(fg, x0, lb=lb, ub=ub, constraints=constraints, np=np)
     assert not res.success
 
 
@@ -257,7 +257,7 @@ def test_infeasible_bounds_constrained():
     x0 = np.ones(n)
     lb = np.full(n, 1)
     ub = np.full(n, 0)
-    res = minimize(fg, x0, lb=lb, ub=ub, constraints=constraints)
+    res = minimize(fg, x0, lb=lb, ub=ub, constraints=constraints, np=np)
     assert not res.success
 
 
@@ -272,7 +272,7 @@ def test_iterations_max():
     options = {'max_iter' : 1}
 
     x0 = np.arange(5)
-    res = minimize(fg, x0, options=options)
+    res = minimize(fg, x0, options=options, np=np)
     print(res)
     assert not res.success
     assert res.status==2
@@ -311,7 +311,7 @@ def test_iterations_max_constrained():
 
     n = 4
     x0 = np.zeros(n)
-    res = minimize(fg, x0, constraints=constraints, options=options)
+    res = minimize(fg, x0, constraints=constraints, options=options, np=np)
     assert res.status==2
 
 
@@ -350,7 +350,7 @@ def test_outer_iterations_max_constrained():
 
     n = 4
     x0 = np.zeros(n)
-    res = minimize(fg, x0, constraints=constraints, options=options)
+    res = minimize(fg, x0, constraints=constraints, options=options, np=np)
     assert res.status == 2
 
 
@@ -367,7 +367,7 @@ def test_unconstrained_wrong_ls():
 
     x0 = np.ones(5)
     c = np.arange(5) + 1
-    res = minimize(fg, x0, options=options)
+    res = minimize(fg, x0, options=options, np=np)
     assert_allclose(res.x, -1/(4*c)**(1/3), atol=1E-4)
 
 def test_unconstrained_quadratic_ls():
@@ -383,7 +383,7 @@ def test_unconstrained_quadratic_ls():
 
     x0 = np.ones(50)
     c = np.arange(50) + 1
-    res = minimize(fg, x0, options=options)
+    res = minimize(fg, x0, options=options, np=np)
     assert_allclose(res.x, -1/(2*c), atol=1E-4)
 
 
@@ -401,7 +401,7 @@ def test_grad_test():
 
     x0 = np.ones(5)
     c = np.arange(5) + 1
-    res = minimize(fg, x0, options=options)
+    res = minimize(fg, x0, options=options, np=np)
     assert_allclose(res.x, -1/(2*c), atol=1E-4)
 
 def test_wrong_grad():
@@ -416,7 +416,7 @@ def test_wrong_grad():
                'verbose' : 10}
 
     x0 = np.ones(5)
-    res = minimize(fg, x0, options=options)
+    res = minimize(fg, x0, options=options, np=np)
     print(res)
     # line search should fail due to wrong gradient
     assert res.status==3

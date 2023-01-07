@@ -156,8 +156,10 @@ class LBFGSB:
         if self.constrained:
             step_ub = np.full(self.n, np.inf)
             step_lb = np.full(self.n, np.inf)
-            step_ub = np.divide(self.ub - x, d, out=step_ub, where=d>0)
-            step_lb = np.divide(self.lb - x, d, out=step_lb, where=d<0)
+            idx_ub = np.where(d > 0)
+            idx_lb = np.where(d < 0)
+            step_ub[idx_ub] = np.divide(self.ub[idx_ub] - x[idx_ub], d[idx_ub])
+            step_lb[idx_lb] = np.divide(self.lb[idx_lb] - x[idx_lb], d[idx_lb])
             step_max = min(np.min(step_ub), np.min(step_lb))
         else:
             step_max = np.inf
@@ -564,11 +566,11 @@ def minimize(fg, x0, lb=None, ub=None, options=None, constraints=None, np=None):
         import numpy as np
     if options is None:
         options = {}
-    x0 = np.ascontiguousarray(x0)
+    x0 = np.ascontiguousarray(np.array(x0))
     if not lb is None:
-        lb = np.ascontiguousarray(lb)
+        lb = np.ascontiguousarray(np.array(lb))
     if not ub is None:
-        ub = np.ascontiguousarray(ub)
+        ub = np.ascontiguousarray(np.array(ub))
     if not constraints:
         solver = LBFGSB(fg, x0, np, lb, ub, options)
     else:
