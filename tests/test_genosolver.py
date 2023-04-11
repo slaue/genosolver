@@ -23,6 +23,11 @@
 #    E-mail: soeren.laue@uni-jena.de
 #    Web:    http://www.geno-project.org
 
+import sys, os
+
+HERE_TEST_PATH = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(HERE_TEST_PATH, '../'))
+
 from genosolver import minimize, check_version
 
 import numpy as np
@@ -163,7 +168,7 @@ def test_constrained0():
                'max_iter' : 3000,
                'm' : 10,
                'ls' : 0,
-               'verbose' : 0  # Set it to 0 to fully mute it.
+               'verbose' : 10  # Set it to 0 to fully mute it.
               }
     n = 4
     x0 = np.zeros(n)
@@ -421,6 +426,44 @@ def test_wrong_grad():
     # line search should fail due to wrong gradient
     assert res.status==3
 
+def test_brownbs():
+    x0 = np.ones(2)
+    def f(x):
+        return (x[0] - 1e6)**2 + (x[1] - 2e-6) ** 2 + (x[0] * x[1] - 2.) ** 2
+
+    def g(x):
+        xd0 = 2 * (x[0] - 1e6) + 2 * (x[0] * x[1] - 2.) * x[1]
+        xd1 = 2 * (x[1] - 2e-6) + 2 * (x[0] * x[1] - 2.) * x[0]
+        return np.array([ xd0, xd1 ])
+    
+    #g = grad(f)
+    fg = lambda x: (f(x), g(x))
+
+    np.seterr(all = 'raise')
+    options = { 'ls': 0, 'verbose': 101, 'max_iter': 20 }
+    res = minimize(fg, x0, options = options, np = np)
+    print(res)
+    assert res.status == 0
+
+
+'''
+from autograd import grad
+import autograd.numpy as anp
+
+def test_fletchbv():
+    x0 = anp.array([ (i + 1) / 1001 for i in range(1000) ])
+    def f(x):
+        return 0.5 * x[0] ** 2 + 0.5 * anp.sum((x[:-1] - x[1:]) ** 2) + 0.5 * x[-1] ** 2 - (1 + 2 / 1001 ** 2) * anp.sum(x) - anp.sum(anp.cos(x) / 1001 ** 2)
+
+    g = grad(f)
+    fg = lambda x: (f(x), g(x))
+
+    np.seterr(all = 'raise')
+    options = { 'ls': 0, 'verbose': 0, 'max_iter': 400 }
+    res = minimize(fg, x0, options = options, np = np)
+    print(res)
+    assert res.status == 0
+'''
 
 if __name__ == "__main__":
     pytest.main()
