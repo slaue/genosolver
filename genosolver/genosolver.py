@@ -165,47 +165,23 @@ class LBFGSB:
             step_max = np.inf
         return step_max
 
-    def line_search(self, x_old, d, step_max, f_old, g_old, quadratic):
-        np = self.np
-        alpha = 0.1
-        beta = 0.5
-        step = min(float(step_max), 1.0)
-        k = 0
-        fun_eval = 0
-        dg = np.dot(g_old, d)
-        if not dg < 0:
-            print(dg)
-            print(d)
-            assert False
-
-        seen_quadratic = False
-        while True:
-            x = x_old + step * d
-            f, g = self.fg(x)
-            fun_eval += 1
-            # make sure that function is really quadratic when said so
-            if seen_quadratic:
-                if np.abs(np.dot(d, g)) > 1E-5:
-                    if self.param['verbose'] >= 10:
-                        print('Function is not quadratic. Use parameter ls=0 instead.')
-                    quadratic = False
-                    self.param['ls'] = 0
-
-            if f <= f_old + alpha * step * dg:
-                break
-            if k > self.param['max_ls']:
-                break
-            # quadratic interpolation
-            if quadratic:
-                a = np.dot(g_old, d)
-                b = np.dot(g, d)
-                step *= a / (a - b)
-                seen_quadratic = True
-            else:
-                step *= beta
-            k += 1
-
-        return f, g, x, step, fun_eval
+    def line_search(self, x_old, d, step_max, f_old, g_old, quadratic, f_old_old = None):
+        from scipy.optimize import line_search as LINE_SEARCH
+        
+        ff = lambda x: self.fg(x)[0]
+        gg = lambda x: self.fg(x)[1]
+        
+        step, fc, gc, f, _, g = LINE_SEARCH(f = ff, myfprime = gg, xk = x_old, pk = d, gfk = g_old, old_fval = f_old, old_old_fval = f_old_old, c1 = 1e-4, c2 = .9, amax = step_max, maxiter = 20)
+        
+        if f is None: f = f_old
+        if g is None: g = g_old
+        if fc is None: fc = 0
+        if gc is None: gc = 0
+        
+        if step is None: x = x_old
+        else: x = x_old + step * d
+        
+        return f, g, x, step, (fc + gc)
 
     def two_loop(self, g):
         np = self.np
@@ -270,7 +246,10 @@ class LBFGSB:
         f2, _ = self.fg(x - t * delta)
         _, g = self.fg(x)
         d = (f1 - f2) / (2 * t) - np.dot(g, delta)
-        print(f'gradient test: approximation error {d:.5g}')
+        if isinstance(d, np.ndarray):
+            print(f'gradient test: approximation error {d[0]:.5g}')
+        else:
+            print(f'gradient test: approximation error {d:.5g}')
         return d
 
     def minimize(self):
@@ -307,6 +286,7 @@ class LBFGSB:
                                                 "Step Length", "Function Val",
                                                 "Proj Gradient"))
 
+        f_old = f + np.linalg.norm(g) / 2
         k = 0
         while True:
             k += 1
@@ -334,13 +314,15 @@ class LBFGSB:
                     # initial direction
                     d = -g * self.working
                     d /= np.linalg.norm(d)
+                    f_old_old =  None
                     continue
 
+            f_old_old = f_old
             f_old = f
             if self.param['ls'] == 2:
-                f, g, x, step, fun_eval_ls = self.line_search(x, d, step_max, f, g, quadratic=True)
+                f, g, x, step, fun_eval_ls = self.line_search(x, d, step_max, f, g, quadratic=True, f_old_old = f_old_old)
             else:
-                f, g, x, step, fun_eval_ls = self.line_search(x, d, step_max, f, g, quadratic=False)
+                f, g, x, step, fun_eval_ls = self.line_search(x, d, step_max, f, g, quadratic=False, f_old_old = f_old_old)
 
             if f > f_old:
                 print('error')
@@ -351,7 +333,7 @@ class LBFGSB:
                 f, g = self.fg(x)
                 fun_eval += 1
                 pg = self.proj_grad_norm(x, g)
-
+                
                 self.grad_test(x)
                 # line search did not converge
                 if self.num_cors() > 0:
@@ -393,7 +375,8 @@ class LBFGSB:
             if np.dot(s, y) > eps * np.dot(y, y):
                 self.add_corrections(s, y)
             if self.param['verbose'] > 100:
-                print(self.S)
+                print('S =', self.S)
+                print('Y =', self.Y)
 
             d = -self.two_loop(g)
             dg = np.dot(g, d)
