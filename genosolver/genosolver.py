@@ -166,12 +166,13 @@ class LBFGSB:
         return step_max
 
     def line_search(self, x_old, d, step_max, f_old, g_old, quadratic, f_old_old = None):
-        from scipy.optimize import line_search as LINE_SEARCH
+#        from scipy.optimize import line_search as LINE_SEARCH
+        from scipy.optimize.linesearch import line_search_wolfe1 as LINE_SEARCH
         
         ff = lambda x: self.fg(x)[0]
         gg = lambda x: self.fg(x)[1]
         
-        step, fc, gc, f, _, g = LINE_SEARCH(f = ff, myfprime = gg, xk = x_old, pk = d, gfk = g_old, old_fval = f_old, old_old_fval = f_old_old, c1 = 1e-4, c2 = .9, amax = step_max, maxiter = 20)
+        step, fc, gc, f, _, g = LINE_SEARCH(f=ff, fprime=gg, xk=x_old, pk=d, gfk=g_old, old_fval=f_old, old_old_fval=f_old_old, c1=1e-4, c2=.9, amax=step_max)#, maxiter=20)
         
         if f is None: f = f_old
         if g is None: g = g_old
@@ -181,7 +182,7 @@ class LBFGSB:
         if step is None: x = x_old
         else: x = x_old + step * d
         
-        return f, g, x, step, (fc + gc)
+        return f, g, x, step, max(fc, gc)
 
     def two_loop(self, g):
         np = self.np
@@ -254,7 +255,7 @@ class LBFGSB:
 
     def minimize(self):
         np = self.np
-        eps = 1E-10
+        eps = 1E-20
         # check for feasibility
         if np.any(self.lb > self.ub):
             return OptimizeResult(x=self.x, fun=None, jac=None,
@@ -279,7 +280,7 @@ class LBFGSB:
 
         # initial direction
         d = -g * self.working
-        d /= np.linalg.norm(d)
+#        d /= np.linalg.norm(d)
 
         if self.param['verbose'] >= 10:
             print("%10s %10s %15s %15s %15s" % ("Iteration", "FunEvals",
@@ -287,6 +288,7 @@ class LBFGSB:
                                                 "Proj Gradient"))
 
         f_old = f + np.linalg.norm(g) / 2
+#        f_old = None
         k = 0
         while True:
             k += 1
@@ -320,9 +322,9 @@ class LBFGSB:
             f_old_old = f_old
             f_old = f
             if self.param['ls'] == 2:
-                f, g, x, step, fun_eval_ls = self.line_search(x, d, step_max, f, g, quadratic=True, f_old_old = f_old_old)
+                f, g, x, step, fun_eval_ls = self.line_search(x, d, step_max, f, g, quadratic=True, f_old_old=f_old_old)
             else:
-                f, g, x, step, fun_eval_ls = self.line_search(x, d, step_max, f, g, quadratic=False, f_old_old = f_old_old)
+                f, g, x, step, fun_eval_ls = self.line_search(x, d, step_max, f, g, quadratic=False, f_old_old=f_old_old)
 
             if f > f_old:
                 print('error')

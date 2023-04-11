@@ -24,9 +24,12 @@ def test_brownbs():
     #g = grad(f)
     fg = lambda x: (f(x), g(x))
 
-    np.seterr(all = 'raise')
-#    options = { 'ls': 0, 'verbose': 10, 'max_iter': 20 }
-#    res = minimize(fg, x0, options = options, np = np)
+    np.seterr(all='raise')
+    options = { 'ls': 0, 'verbose': 10, 'max_iter': 20 }
+    res = minimize(fg, x0, options=options, np=np)
+    print(res)
+    
+    print('*'*20)
     options = {'disp' : True}
     res = s_min(fg, x0, jac=True, options=options, method='BFGS')
     print(res)
