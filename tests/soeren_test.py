@@ -21,7 +21,6 @@ def test_brownbs():
         xd1 = 2 * (x[1] - 2e-6) + 2 * (x[0] * x[1] - 2.) * x[0]
         return np.array([ xd0, xd1 ])
     
-    #g = grad(f)
     fg = lambda x: (f(x), g(x))
 
     np.seterr(all='raise')

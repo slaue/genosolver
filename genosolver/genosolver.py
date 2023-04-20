@@ -166,13 +166,13 @@ class LBFGSB:
         return step_max
 
     def line_search(self, x_old, d, step_max, f_old, g_old, quadratic, f_old_old = None):
-#        from scipy.optimize import line_search as LINE_SEARCH
-        from scipy.optimize.linesearch import line_search_wolfe1 as LINE_SEARCH
+        from scipy.optimize import line_search as LINE_SEARCH
+        #from scipy.optimize.linesearch import line_search_wolfe1 as LINE_SEARCH
         
         ff = lambda x: self.fg(x)[0]
         gg = lambda x: self.fg(x)[1]
         
-        step, fc, gc, f, _, g = LINE_SEARCH(f=ff, fprime=gg, xk=x_old, pk=d, gfk=g_old, old_fval=f_old, old_old_fval=f_old_old, c1=1e-4, c2=.9, amax=step_max)#, maxiter=20)
+        step, fc, gc, f, _, g = LINE_SEARCH(f=ff, myfprime=gg, xk=x_old, pk=d, gfk=g_old, old_fval=f_old, old_old_fval=f_old_old, c1=1e-4, c2=.9, amax=step_max, maxiter=20)
         
         if f is None: f = f_old
         if g is None: g = g_old
@@ -280,15 +280,15 @@ class LBFGSB:
 
         # initial direction
         d = -g * self.working
-#        d /= np.linalg.norm(d)
+        d /= np.linalg.norm(d)
 
         if self.param['verbose'] >= 10:
             print("%10s %10s %15s %15s %15s" % ("Iteration", "FunEvals",
                                                 "Step Length", "Function Val",
                                                 "Proj Gradient"))
 
-        f_old = f + np.linalg.norm(g) / 2
-#        f_old = None
+#        f_old = f + np.linalg.norm(g) / 2
+        f_old = None
         k = 0
         while True:
             k += 1
@@ -316,7 +316,7 @@ class LBFGSB:
                     # initial direction
                     d = -g * self.working
                     d /= np.linalg.norm(d)
-                    f_old_old =  None
+                    f_old =  None
                     continue
 
             f_old_old = f_old
