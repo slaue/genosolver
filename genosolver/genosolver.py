@@ -212,7 +212,7 @@ class LBFGSB:
                 q -= alpha[i] * Yw[i]
 
         if rho[k - 1] > eps:
-            gamma = np.dot(Yw[k - 1], Yw[k - 1]) / rho[k - 1]
+            gamma = rho[k - 1] / np.dot(Yw[k - 1], Yw[k - 1])
             q *= gamma
 
         for i in range(k):
@@ -261,7 +261,7 @@ class LBFGSB:
 
     def minimize(self):
         np = self.np
-        eps = 1E-20
+        eps = 1E-10
         # check for feasibility
         if np.any(self.lb > self.ub):
             return OptimizeResult(x=self.x, fun=None, jac=None,
