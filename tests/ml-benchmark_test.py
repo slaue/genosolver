@@ -27,11 +27,16 @@ def test_brownbs():
     print(res)
     assert res.status == 0
 
-
-from autograd import grad
-import autograd.numpy as anp
+import warnings
 
 def test_fletchbv():
+    try:
+        from autograd import grad
+        import autograd.numpy as anp
+    except ImportError as e:
+        warnings.warn(f'test_fletchbv not executed\n{e}')
+        return
+    
     x0 = anp.array([ (i + 1) / 1001 for i in range(1000) ])
     def f(x):
         return 0.5 * x[0] ** 2 + 0.5 * anp.sum((x[:-1] - x[1:]) ** 2) + 0.5 * x[-1] ** 2 - (1 + 2 / 1001 ** 2) * anp.sum(x) - anp.sum(anp.cos(x) / 1001 ** 2)
@@ -45,6 +50,23 @@ def test_fletchbv():
     #print(res)
     assert res.status == 0
 
+def test_cliff():
+    x0 = np.array([0., -1.])
+    def f(x):
+        return (0.01 * x[0] - 0.03) ** 2 - x[0] + x[1] + np.exp(20 * (x[0] - x[1]))
+    def g(x):
+        x0 = 0.02 * (0.01 * x[0] - 0.03) - 1 + 20 * np.exp(20 * (x[0] - x[1]))
+        x1 = 1 - 20 * np.exp(20 * (x[0] - x[1]))
+        return np.array([x0,x1])
+    def fg(x):
+        return (f(x),g(x))
+    
+    options = { 'ls': 0, 'verbose': 0, 'max_iter': 3, 'step_max': 100000 }
+    res = minimize(fg, x0, options = options, np = np)
+    assert res.status == 0
+
+        
 if __name__ == '__main__':
     test_brownbs()
     test_fletchbv()
+    test_cliff()
