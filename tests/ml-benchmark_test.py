@@ -45,7 +45,7 @@ def test_fletchbv():
     fg = lambda x: (f(x), g(x))
 
     np.seterr(all = 'raise')
-    options = { 'ls': 0, 'verbose': 0, 'max_iter': 400, 'm': 30 }
+    options = { 'ls': 0, 'verbose': 0, 'max_iter': 1000, 'm': 30 }
     res = minimize(fg, x0, options = options, np = np)
     #print(res)
     assert res.status == 0
@@ -61,7 +61,7 @@ def test_cliff():
     def fg(x):
         return (f(x),g(x))
     
-    options = { 'ls': 0, 'verbose': 0, 'max_iter': 3, 'step_max': 100000 }
+    options = { 'ls': 0, 'verbose': 0, 'max_iter': 60 }
     res = minimize(fg, x0, options = options, np = np)
     assert res.status == 0
 

@@ -165,22 +165,27 @@ class LBFGSB:
             step_max = np.inf
         return step_max
 
-    def line_search(self, x_old, d, step_max, f_old, g_old, quadratic, f_old_old = None):
+    def line_search(self, x_old, d, step_max, f_old, g_old, quadratic, f_old_old=None):
         from scipy.optimize import line_search as LINE_SEARCH
         #from scipy.optimize.linesearch import line_search_wolfe1 as LINE_SEARCH
+        #from scipy.optimize._optimize import _line_search_wolfe12 as LINE_SEARCH
         
         ff = lambda x: self.fg(x)[0]
         gg = lambda x: self.fg(x)[1]
+        maxiter = 20 # np.log(step_max) + 1. ?
         
-        step, fc, gc, f, _, g = LINE_SEARCH(f=ff, myfprime=gg, xk=x_old, pk=d, gfk=g_old, old_fval=f_old, old_old_fval=f_old_old, c1=1e-4, c2=.9, amax=step_max, maxiter=20)
+        step, fc, gc, f, _, g = LINE_SEARCH(f=ff, myfprime=gg, xk=x_old, pk=d, gfk=g_old, old_fval=f_old, old_old_fval=f_old_old, c1=1e-4, c2=.9, amax=step_max, maxiter=maxiter)
         
-        if f is None: f = f_old
-        if g is None: g = g_old
-        if fc is None: fc = 0
-        if gc is None: gc = 0
-        
-        if step is None: x = x_old
-        else: x = x_old + step * d
+        if step is None:
+            x = x_old
+            f = f_old
+            g = g_old
+        else:
+            x = x_old + step * d
+            if f is None or g is None:
+                f, g = self.fg(x)
+                fc += 1
+                gc += 1
         
         return f, g, x, step, max(fc, gc)
 
@@ -189,28 +194,29 @@ class LBFGSB:
         k, _ = self.S.shape
         rho = np.empty(k)
         alpha = np.empty(k)
+        eps = 1E-10
         if self.constrained:
             Yw = self.Y * self.working
             q = g * self.working
         else:
             Yw = self.Y
             q = g.copy()
-
+        
         if k == 0:
             return q
 
         for i in range(k - 1, -1, -1):
             rho[i] = np.dot(self.S[i], Yw[i])
-            if rho[i] > 1E-10:
+            if rho[i] > eps:
                 alpha[i] = np.dot(self.S[i], q) / rho[i]
                 q -= alpha[i] * Yw[i]
 
-        if rho[k - 1] > 1E-10:
-            gamma = rho[k - 1] / np.linalg.norm(Yw[k - 1]) ** 2
+        if rho[k - 1] > eps:
+            gamma = np.dot(Yw[k - 1], Yw[k - 1]) / rho[k - 1]
             q *= gamma
 
         for i in range(k):
-            if rho[i] > 1E-10:
+            if rho[i] > eps:
                 beta = np.dot(Yw[i], q) / rho[i]
                 q += (alpha[i] - beta) * self.S[i]
 
@@ -347,6 +353,7 @@ class LBFGSB:
                     # initial direction
                     d = -g * self.working
                     d /= np.linalg.norm(d)
+                    f_old = None
                     continue
                 else:
                     # really cannot do any progress due to numerical errors
