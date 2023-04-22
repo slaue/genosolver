@@ -261,7 +261,7 @@ class LBFGSB:
 
     def minimize(self):
         np = self.np
-        eps = 1E-10
+        eps = 1E-20
         # check for feasibility
         if np.any(self.lb > self.ub):
             return OptimizeResult(x=self.x, fun=None, jac=None,
@@ -289,6 +289,7 @@ class LBFGSB:
         d /= np.linalg.norm(d)
 
         if self.param['verbose'] >= 10:
+            print()
             print("%10s %10s %15s %15s %15s" % ("Iteration", "FunEvals",
                                                 "Step Length", "Function Val",
                                                 "Proj Gradient"))
