@@ -143,7 +143,7 @@ class LBFGSB:
 
     def proj_grad_norm(self, x, g):
         np = self.np
-        eps = 1E-10
+        eps = 1E-20
         if self.constrained:
             self.working = np.full(self.n, 1.0)
             self.working[(x < self.lb + eps * 2) & (g >= 0)] = 0
@@ -165,16 +165,21 @@ class LBFGSB:
             step_max = np.inf
         return step_max
 
-    def line_search(self, x_old, d, step_max, f_old, g_old, quadratic, f_old_old=None):
-        from scipy.optimize import line_search as LINE_SEARCH
-        #from scipy.optimize.linesearch import line_search_wolfe1 as LINE_SEARCH
+    
+    def line_search(self, x_old, d, step_max, f_old, g_old, quadratic):
+        #from scipy.optimize import line_search as LINE_SEARCH
+        #from scipy.optimize._linesearch import line_search_wolfe1 as LINE_SEARCH
         #from scipy.optimize._optimize import _line_search_wolfe12 as LINE_SEARCH
+        import sys, os
+        sys.path.append(os.path.dirname(__file__))
+        from line_search_wolfe import line_search_wolfe1 as LINE_SEARCH
+        sys.path.pop()
         
         ff = lambda x: self.fg(x)[0]
         gg = lambda x: self.fg(x)[1]
         maxiter = 20 # np.log(step_max) + 1. ?
         
-        step, fc, gc, f, _, g = LINE_SEARCH(f=ff, myfprime=gg, xk=x_old, pk=d, gfk=g_old, old_fval=f_old, old_old_fval=f_old_old, c1=1e-4, c2=.9, amax=step_max, maxiter=maxiter)
+        step, fc, gc, f, _, g = LINE_SEARCH(f=ff, fprime=gg, xk=x_old, pk=d, gfk=g_old, old_fval=f_old, old_old_fval=None, c1=1e-4, c2=.9, amax=step_max)#, maxiter=maxiter)
         
         if step is None:
             x = x_old
@@ -194,7 +199,7 @@ class LBFGSB:
         k, _ = self.S.shape
         rho = np.empty(k)
         alpha = np.empty(k)
-        eps = 1E-10
+        eps = 1E-20
         if self.constrained:
             Yw = self.Y * self.working
             q = g * self.working
@@ -207,16 +212,20 @@ class LBFGSB:
 
         for i in range(k - 1, -1, -1):
             rho[i] = np.dot(self.S[i], Yw[i])
-            if rho[i] > eps:
+            yy = np.dot(Yw[i], Yw[i])
+            if rho[i] > eps * yy:
                 alpha[i] = np.dot(self.S[i], q) / rho[i]
                 q -= alpha[i] * Yw[i]
 
-        if rho[k - 1] > eps:
-            gamma = rho[k - 1] / np.dot(Yw[k - 1], Yw[k - 1])
+        yy = np.dot(Yw[k - 1], Yw[k - 1])
+        if rho[k - 1] > eps * yy:
+            gamma = rho[k - 1] / yy
             q *= gamma
-
+        
+        
         for i in range(k):
-            if rho[i] > eps:
+            yy = np.dot(Yw[i], Yw[i])
+            if rho[i] > eps * yy:
                 beta = np.dot(Yw[i], q) / rho[i]
                 q += (alpha[i] - beta) * self.S[i]
 
@@ -226,7 +235,7 @@ class LBFGSB:
 
     def project_direction(self, x, g, d):
         np = self.np
-        eps = 1E-10
+        eps = 1E-20
         x_new = x + d
         idx_lb = x_new < self.lb + 2 * eps
         idx_ub = x_new > self.ub - 2 * eps
@@ -313,6 +322,7 @@ class LBFGSB:
                 print('d', d)
                 print('step_max', step_max)
 
+            '''
             if step_max < 1E-5:
                 if self.num_cors() > 0:
                     # maybe clearing up all correction pairs will help
@@ -325,18 +335,23 @@ class LBFGSB:
                     d /= np.linalg.norm(d)
                     f_old =  None
                     continue
-
-            f_old_old = f_old
+            '''
             f_old = f
             if self.param['ls'] == 2:
-                f, g, x, step, fun_eval_ls = self.line_search(x, d, step_max, f, g, quadratic=True, f_old_old=f_old_old)
+                f, g, x, step, fun_eval_ls = self.line_search(x, d, step_max, f, g, quadratic=True)
             else:
-                f, g, x, step, fun_eval_ls = self.line_search(x, d, step_max, f, g, quadratic=False, f_old_old=f_old_old)
+                f, g, x, step, fun_eval_ls = self.line_search(x, d, step_max, f, g, quadratic=False)
 
             if f > f_old:
                 print('error')
                 step = None
 
+            if step is None:
+                status = 3
+                message = "Line search failed"
+                warnings.warn(message)
+                break
+            '''
             if step is None:
                 x = x_old
                 f, g = self.fg(x)
@@ -361,7 +376,7 @@ class LBFGSB:
                     status = 3
                     message = "Line search failed"
                     break
-
+            '''
             x = self.force_bounds(x)
             pg = self.proj_grad_norm(x, g)
             fun_eval += fun_eval_ls
@@ -384,6 +399,8 @@ class LBFGSB:
             y = g - g_old
             if np.dot(s, y) > eps * np.dot(y, y):
                 self.add_corrections(s, y)
+            elif self.param['verbose'] > 100:
+                print('pair not added:', s, y)
             if self.param['verbose'] > 100:
                 print('S =', self.S)
                 print('Y =', self.Y)
