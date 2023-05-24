@@ -9,6 +9,7 @@ import numpy as np
 
 from genosolver import minimize
 from scipy.optimize import minimize as s_min
+from numpy.testing import assert_allclose
 
 def test_bound_constrained1():
     def fg1(x):
