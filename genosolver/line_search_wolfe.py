@@ -110,6 +110,9 @@ def scalar_search_wolfe1(phi, derphi, phi0=None, old_phi0=None, derphi0=None,
             alpha1 = 1.0
     else:
         alpha1 = 1.0
+        
+    # need to have alpha1 within the corresponding bounds
+    alpha1 = max(min(alpha1, amax), amin)
 
     phi1 = phi0
     derphi1 = derphi0
