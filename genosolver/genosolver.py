@@ -143,11 +143,11 @@ class LBFGSB:
 
     def proj_grad_norm(self, x, g):
         np = self.np
-        eps = 1E-20
+        eps = 1E-10
         if self.constrained:
             self.working = np.full(self.n, 1.0)
-            self.working[(x < self.lb + eps * 2) & (g >= 0)] = 0
-            self.working[(x > self.ub - eps * 2) & (g <= 0)] = 0
+            self.working[(x <= self.lb + eps * 2) & (g >= 0)] = 0
+            self.working[(x >= self.ub - eps * 2) & (g <= 0)] = 0
         pg = np.linalg.norm(np.minimum(np.maximum(x - g, self.lb), self.ub) - x, np.inf)
         return pg
 
