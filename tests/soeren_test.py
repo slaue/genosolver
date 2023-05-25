@@ -125,4 +125,5 @@ def test_brownbs():
 
 
 if __name__ == '__main__':
-    test_brownbs()
+    #test_brownbs()
+    test_bound_constrained1()
