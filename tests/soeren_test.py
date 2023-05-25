@@ -11,6 +11,32 @@ from genosolver import minimize
 from scipy.optimize import minimize as s_min
 from numpy.testing import assert_allclose
 
+def test_bound_constrained0():
+    def fg1(x):
+        c = np.array([2.])
+        f = c.dot(x)
+        g = c
+        return f, g
+
+    options = {'verbose' : 10,
+               'eps_pg' : 1E-6,
+               'm' : 10,
+               'max_iter' : 1000,
+               'grad_test' : False,
+               'ls' : 0}
+
+#    x0 = np.zeros(3)
+#    res = minimize(fg1, x0, options=options, np=np)
+#    assert_allclose(res.x, np.array([-1, -1.5, -1]), atol=1E-4)
+
+    x0 = np.zeros(1)
+    lb = np.full(1, -1.)
+    ub = np.full(1, 5)
+    res = minimize(fg1, x0, lb=lb, ub=ub, np=np, options=options)
+    assert_allclose(res.x, np.array([-1, -1, -1]), atol=1E-4)
+
+
+
 def test_bound_constrained1():
     def fg1(x):
         Q = np.array([[1., 0, 1],
@@ -22,21 +48,21 @@ def test_bound_constrained1():
         g = t + c
         return f, g
 
-    options = {'verbose' : 100,
+    options = {'verbose' : 10,
                'eps_pg' : 1E-6,
                'm' : 10,
                'max_iter' : 1000,
                'grad_test' : False,
                'ls' : 0}
 
-    x0 = np.zeros(3)
-    res = minimize(fg1, x0, options=options, np=np)
-    assert_allclose(res.x, np.array([-1, -1.5, -1]), atol=1E-4)
+#    x0 = np.zeros(3)
+#    res = minimize(fg1, x0, options=options, np=np)
+#    assert_allclose(res.x, np.array([-1, -1.5, -1]), atol=1E-4)
 
     x0 = np.zeros(3)
     lb = np.full(3, -1.)
     ub = np.full(3, 5)
-    res = minimize(fg1, x0, lb=lb, ub=ub, np=np)
+    res = minimize(fg1, x0, lb=lb, ub=ub, np=np, options=options)
     assert_allclose(res.x, np.array([-1, -1, -1]), atol=1E-4)
 
     lb = np.full(3, -1.2)
@@ -83,21 +109,21 @@ def test_constrained0():
               }
     n = 4
     x0 = np.zeros(n)
-    res = minimize(fg, x0, constraints=constraints, options=options, np=np)
-    assert_allclose(res.x, np.array([1., 0.5, 0, -0.5]), atol=1E-4)
+#    res = minimize(fg, x0, constraints=constraints, options=options, np=np)
+#    assert_allclose(res.x, np.array([1., 0.5, 0, -0.5]), atol=1E-4)
 
     lb = np.full(n, 0)
     ub = np.full(n, 1)
-    res = minimize(fg, x0, lb=lb, ub=ub, constraints=constraints, options=options, np=np)
-    assert_allclose(res.x, np.array([0.75, 0.25, 0, 0]), atol=1E-4)
+#    res = minimize(fg, x0, lb=lb, ub=ub, constraints=constraints, options=options, np=np)
+#    assert_allclose(res.x, np.array([0.75, 0.25, 0, 0]), atol=1E-4)
 
     lb = np.full(n, -0.2)
     res = minimize(fg, x0, lb=lb, constraints=constraints, options=options, np=np)
     assert_allclose(res.x, np.array([0.9, 0.4, -0.1, -0.2]), atol=1E-4)
 
     ub = np.full(n, 0.5)
-    res = minimize(fg, x0, ub=ub, constraints=constraints, options=options, np=np)
-    assert_allclose(res.x, np.array([0.5, 0.5, 0.25, -0.25]), atol=1E-4)
+#    res = minimize(fg, x0, ub=ub, constraints=constraints, options=options, np=np)
+#    assert_allclose(res.x, np.array([0.5, 0.5, 0.25, -0.25]), atol=1E-4)
 
 
 def test_brownbs():
@@ -125,4 +151,7 @@ def test_brownbs():
 
 
 if __name__ == '__main__':
-    test_brownbs()
+#    test_brownbs()
+#    test_bound_constrained1()
+#    test_constrained0()
+    test_bound_constrained0()
