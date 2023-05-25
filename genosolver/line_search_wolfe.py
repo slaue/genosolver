@@ -361,14 +361,16 @@ def scalar_search_wolfe2(phi, derphi, phi0=None,
         if alpha1 == 0 or (amax is not None and alpha0 == amax):
             # alpha1 == 0: This shouldn't happen. Perhaps the increment has
             # slipped below machine precision?
-            alpha_star = None
             phi_star = phi0
             phi0 = old_phi0
-            derphi_star = None
 
             if alpha1 == 0:
+                alpha_star = None
+                derphi_star = None
                 msg = 'Rounding errors prevent the line search from converging'
             else:
+                alpha_star = alpha0
+                derphi_star = derphi_a0
                 msg = "The line search algorithm could not find a solution " + \
                       "less than or equal to amax: %s" % amax
 
