@@ -237,8 +237,8 @@ class LBFGSB:
         np = self.np
         eps = 1E-20
         x_new = x + d
-        idx_lb = x_new < self.lb + 2 * eps
-        idx_ub = x_new > self.ub - 2 * eps
+        idx_lb = x_new <= self.lb + 2 * eps
+        idx_ub = x_new >= self.ub - 2 * eps
         x_new[idx_lb] = self.lb[idx_lb]
         x_new[idx_ub] = self.ub[idx_ub]
         d_new = x_new - x
