@@ -33,7 +33,7 @@ def test_bound_constrained0():
     lb = np.full(1, -1.)
     ub = np.full(1, 5)
     res = minimize(fg1, x0, lb=lb, ub=ub, np=np, options=options)
-    assert_allclose(res.x, np.array([-1, -1, -1]), atol=1E-4)
+    assert_allclose(res.x, np.array([-1]), atol=1E-4)
 
 
 
