@@ -172,7 +172,7 @@ class LBFGSB:
         #from scipy.optimize._optimize import _line_search_wolfe12 as LINE_SEARCH
         import sys, os
         sys.path.append(os.path.dirname(__file__))
-        from line_search_wolfe import line_search_wolfe1 as LINE_SEARCH
+        from line_search_wolfe import line_search_wolfe2 as LINE_SEARCH
         sys.path.pop()
         
         ff = lambda x: self.fg(x)[0]
