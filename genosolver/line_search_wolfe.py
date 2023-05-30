@@ -401,7 +401,7 @@ def scalar_search_wolfe2(phi, derphi, phi0=None,
                               phi0, derphi0, c1, c2, extra_condition)
             break
 
-        alpha2 = 2 * alpha1  # increase by factor of two on each iteration
+        alpha2 = 4 * alpha1  # increase by factor of **two** on each iteration
         if amax is not None:
             alpha2 = min(alpha2, amax)
         alpha0 = alpha1
