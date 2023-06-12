@@ -426,6 +426,23 @@ def test_wrong_grad():
     # line search should fail due to wrong gradient
     assert res.status==3
 
+def test_linear_bounded():
+    def fg(x):
+        return x, 1
 
+    options = { 'verbose': 101 }
+
+    x0 = 2
+    res = minimize(fg, x0, lb=0, options=options, np=np)
+    assert res['nfev'] <= 3
+    
+    x0 = 1
+    res = minimize(fg, x0, lb=0, options=options, np=np)
+    assert res['nfev'] <= 2
+    
+    x0 = .5
+    res = minimize(fg, x0, lb=0, options=options, np=np)
+    assert res['nfev'] <= 2
+    
 if __name__ == "__main__":
     pytest.main()
