@@ -134,6 +134,8 @@ def scalar_search_wolfe1(phi, derphi, phi0=None, old_phi0=None, derphi0=None,
 
     if task[:5] == b'ERROR':
         stp = None  # failed
+    if task[:7] == b'WARNING':
+        print('WARNING')
 
     return stp, phi1, phi0
 
@@ -560,3 +562,41 @@ def _zoom(a_lo, a_hi, phi_lo, phi_hi, derphi_lo,
             valprime_star = None
             break
     return a_star, val_star, valprime_star
+
+from linesearch_allnew import dcsrch
+
+def line_search_wolfe3(f, fprime, xk, pk, gfk=None,
+                       old_fval=None, old_old_fval=None,
+                       args=(), c1=1e-4, c2=0.9, amax=50., amin=1e-8,
+                       xtol=1e-14):
+
+    stp = max(amin, 1.)
+    stp = min(stp, amax)
+    task = 'START'
+    ftol = 1e-3
+    gtol = 0.9
+    verbose = 100
+
+    def phi(s):
+        fx = f(xk + s*pk)
+        gx = fprime(xk + s*pk)
+        gd = np.dot(gx, pk)
+        return fx, gd, gx
+    
+    cnt_on = 0
+    if old_fval is None or gfk is None:
+        old_fval, _, gfk = phi(0)
+        cnt_on = 1
+
+    fval = old_fval
+    gval = np.dot(gfk, pk)
+    fval, grad, stp, task, fg_cnt = dcsrch(fval, gval, stp, ftol, gtol, xtol, amin, amax, task, phi, verbose,grad=gfk)
+
+    if old_fval is None or gfk is None:
+        fg_cnt += 1
+    
+    if task == 'ERROR':
+        print('Error in line search')
+        raise Exception('Line search error')
+
+    return stp, (fg_cnt+cnt_on), 0, fval, old_fval, grad

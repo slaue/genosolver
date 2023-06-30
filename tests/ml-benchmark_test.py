@@ -22,7 +22,7 @@ def test_brownbs():
     fg = lambda x: (f(x), g(x))
 
     np.seterr(all = 'raise')
-    options = { 'ls': 0, 'verbose': 0, 'max_iter': 30 }
+    options = { 'ls': 0, 'verbose': 10, 'max_iter': 30 }
     res = minimize(fg, x0, options = options, np = np)
     print(res)
     assert res.status == 0
