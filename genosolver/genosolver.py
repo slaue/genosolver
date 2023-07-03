@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 
 """
@@ -299,9 +300,9 @@ class LBFGSB:
 
         if self.param['verbose'] >= 10:
             print()
-            print("%10s %10s %15s %15s %15s" % ("Iteration", "FunEvals",
-                                                "Step Length", "Function Val",
-                                                "Proj Gradient"))
+            print("%9s%9s%15s%15s%15s" % ("Iteration", "Funeval",
+                                                "Step Length", "FunValue",
+                                                "Proj.Grad."))
 
 #        f_old = f + np.linalg.norm(g) / 2
         f_old = None
@@ -382,7 +383,7 @@ class LBFGSB:
             fun_eval += fun_eval_ls
 
             if self.param['verbose'] >= 10:
-                print("%10d %10d %15.5g %15.5e %15.5e" % (k, fun_eval, step, f, pg))
+                print("%9d%9d%15.5g%15.5e%15.5e" % (k, fun_eval, step, f, pg))
 
             # check for convergence
             if k >= self.param['max_iter']:
@@ -414,6 +415,7 @@ class LBFGSB:
 
             x_old = x
             g_old = g
+        
         return OptimizeResult(x=x, fun=f, jac=g,
                               nit=k, nfev=fun_eval,
                               status=status, success=(status==0),
