@@ -21,7 +21,7 @@ def test_brownbs():
     #g = grad(f)
     fg = lambda x: (f(x), g(x))
 
-    np.seterr(all = 'raise')
+    np.seterr(all='warn')
     options = { 'ls': 0, 'verbose': 10, 'max_iter': 30 }
     res = minimize(fg, x0, options = options, np = np)
     print(res)
@@ -44,7 +44,7 @@ def test_fletchbv():
     g = grad(f)
     fg = lambda x: (f(x), g(x))
 
-    np.seterr(all='raise')
+    np.seterr(all='warn')
     options = { 'ls': 0, 'verbose': 0, 'max_iter': 1000, 'm': 30 }
     res = minimize(fg, x0, options = options, np = np)
     #print(res)
@@ -110,7 +110,7 @@ def test_qr3dbd():
     g = grad(f)
     fg = lambda x: (f(x), g(x))
 
-    np.seterr(all='raise')
+    np.seterr(all='warn')
     options = { 'ls': 0, 'verbose': 0, 'max_iter': 1000 }
     res = minimize(fg, x0, options=options, np=np)
 
@@ -160,7 +160,7 @@ def test_qr3dls():
     g = grad(f)
     fg = lambda x: (f(x), g(x))
 
-    np.seterr(all='raise')
+    np.seterr(all='warn')
     options = { 'ls': 0, 'verbose': 0, 'max_iter': 1000 }
     res = minimize(fg, x0, options=options, np=np)
 
@@ -209,7 +209,7 @@ def test_qr3d():
     g = grad(f)
     fg = lambda x: (f(x), g(x))
 
-    np.seterr(all='raise')
+    np.seterr(all='warn')
     options = { 'ls': 0, 'verbose': 0, 'max_iter': 1000 }
     res = minimize(fg, x0, options=options, np=np)
 
@@ -239,7 +239,7 @@ def test_explin2():
     g = grad(f)
     fg = lambda x: (f(x), g(x))
 
-    np.seterr(all='raise')
+    np.seterr(all='warn')
     options = { 'ls': 0, 'verbose': 0, 'max_iter': 1000 }
     res = minimize(fg, x, options=options, np=np)
 
@@ -270,7 +270,7 @@ def test_explin():
     g = grad(f)
     fg = lambda x: (f(x), g(x))
 
-    np.seterr(all='raise')
+    np.seterr(all='warn')
     options = { 'ls': 0, 'verbose': 0, 'max_iter': 1000 }
     res = minimize(fg, x, options=options, np=np)
 
@@ -303,7 +303,7 @@ def test_cvxbqp1():
     g = grad(f)
     fg = lambda x: (f(x), g(x))
 
-    np.seterr(all='raise')
+    np.seterr(all='warn')
     options = { 'ls': 0, 'verbose': 0, 'max_iter': 1000 }
     res = minimize(fg, x, options=options, np=np)
 

@@ -168,7 +168,7 @@ def dcsrch(f: float, # &
            ftol: float, # const
            gtol: float, # const
            xtol: float, # const
-           stpmin: float, # const
+           stpmin: float, # const, should always set to zero
            stpmax: float, # const
            task: str, # TaskType&
            fg, # !!!!!!!
@@ -266,6 +266,17 @@ def dcsrch(f: float, # &
   for _ in range(20):
     f, g, grad = fg(stp)
     fg_cnt += 1
+    while np.isnan(f) or np.isposinf(f) or not np.isfinite(g).all():
+      '''
+      stpmax = stp
+      stp = 0.5 * stp
+      '''
+      stp *= 0.5
+      stpmax = stp
+      f, g, grad = fg(stp)
+      fg_cnt += 1
+      
+    
     ftest = finit + stp*gtest
     if (stage == 1 and f <= ftest and g >= 0.0):
       stage = 2
