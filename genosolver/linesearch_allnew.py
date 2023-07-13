@@ -226,7 +226,7 @@ def dcsrch(f: float, # &
 
         #        Exit if there are errors on input.
   if (task == 'ERROR'):
-    return f, g, stp, task
+    return f, g, stp, task, 0
 
 #        Initialize local variables.
 
@@ -267,12 +267,15 @@ def dcsrch(f: float, # &
     f, g, grad = fg(stp)
     fg_cnt += 1
     while np.isnan(f) or np.isposinf(f) or not np.isfinite(g).all():
+      if verbose >= 99:
+        print('f or g has inf or nan')
       '''
       stpmax = stp
       stp = 0.5 * stp
       '''
-      stp *= 0.5
+      stp = 0.5 * stp
       stpmax = stp
+      
       f, g, grad = fg(stp)
       fg_cnt += 1
       

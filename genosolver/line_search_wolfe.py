@@ -567,15 +567,16 @@ from linesearch_allnew import dcsrch
 
 def line_search_wolfe3(f, fprime, xk, pk, gfk=None,
                        old_fval=None, old_old_fval=None,
-                       args=(), c1=1e-4, c2=0.9, amax=50., amin=1e-8,
-                       xtol=0.1):
+                       args=(), c1=1e-4, c2=0.9, amax=50., amin=1e-14,
+                       xtol=0.1, verbose = 0):
 
-    stp = max(amin, 1.)
+    stp = 1.
+    stp = max(amin, stp)
     stp = min(stp, amax)
+    
     task = 'START'
-    ftol = 1e-3
-    gtol = 0.9
-    verbose = 100
+    ftol = c1
+    gtol = c2
 
     def phi(s):
         fx = f(xk + s*pk)
