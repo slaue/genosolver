@@ -296,7 +296,7 @@ class LBFGSB:
 
         # initial direction
         d = -g * self.working
-        d /= np.linalg.norm(d)
+        #d /= np.linalg.norm(d)
 
         if self.param['verbose'] >= 10:
             print()
@@ -383,7 +383,7 @@ class LBFGSB:
             fun_eval += fun_eval_ls
 
             if self.param['verbose'] >= 10:
-                print("%9d%9d%15.5g%15.5e%15.5e" % (k, fun_eval, step, f, pg))
+                print("%9d%9d%15.5g%15.5E%15.5E" % (k, fun_eval, step, f, pg))
 
             # check for convergence
             if k >= self.param['max_iter']:
