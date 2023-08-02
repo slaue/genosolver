@@ -1,4 +1,3 @@
-
 # -*- coding: utf-8 -*-
 
 """
@@ -296,7 +295,7 @@ class LBFGSB:
 
         # initial direction
         d = -g * self.working
-        #d /= np.linalg.norm(d)
+        d /= np.linalg.norm(d)
 
         if self.param['verbose'] >= 10:
             print()
@@ -599,7 +598,7 @@ def minimize(fg, x0, lb=None, ub=None, options=None, constraints=None, np=None):
             shape_constraints.append(dummy_f_c.shape)
             m = len(dummy_f_c.reshape(-1))
             offset.append(offset[-1] + m)
-
+            '''
             # check the type of constraints
             if c['type'] == 'eq':
                 c_lb = np.zeros(m)
@@ -609,7 +608,10 @@ def minimize(fg, x0, lb=None, ub=None, options=None, constraints=None, np=None):
                 c_ub = np.zeros(m)
             else:
                 assert False
-
+            '''
+            c_lb = c['lb']
+            c_ub = c['ub']
+            
             c_lb_all.append(c_lb)
             c_ub_all.append(c_ub)
 
