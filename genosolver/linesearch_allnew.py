@@ -188,7 +188,7 @@ def dcsrch(f: float, # &
   '''
   xtrapl = 1.1
   xtrapu = 4.0
-  
+
   #if (task == 'START'):
   #       Check the input arguments for errors.
   if (stp < stpmin):
@@ -266,19 +266,19 @@ def dcsrch(f: float, # &
   for _ in range(20):
     f, g, grad = fg(stp)
     fg_cnt += 1
-    while np.isnan(f) or np.isposinf(f) or not np.isfinite(g).all():
+
+    # finite
+    for _i in range(10):
+      if (np.isfinite(f) or np.isneginf(f)) and np.isfinite(g).all():
+        break
       if verbose >= 99:
         print('f or g has inf or nan')
-      '''
-      stpmax = stp
-      stp = 0.5 * stp
-      '''
       stp = 0.5 * stp
       stpmax = stp
-      
       f, g, grad = fg(stp)
       fg_cnt += 1
-      
+    else:
+      return f, g, None, 'WARNING', fg_cnt   
     
     ftest = finit + stp*gtest
     if (stage == 1 and f <= ftest and g >= 0.0):
