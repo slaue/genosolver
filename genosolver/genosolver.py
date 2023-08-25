@@ -395,6 +395,13 @@ class LBFGSB:
                 message = "Solved"
                 break
 
+            '''
+            if (f_old - f) / (abs(f) + 1) <= self.param['eps_f']:
+                status = 0
+                message = "Solved"
+                break
+            '''
+
             s = x - x_old
             y = g - g_old
             if np.dot(s, y) > eps * np.dot(y, y):
