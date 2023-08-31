@@ -110,7 +110,7 @@ class LBFGSB:
         self.param.setdefault('step_max', 1E10)
         self.param.setdefault('max_ls', 30)
         self.param.setdefault('eps_pg', 1E-5)
-        self.param.setdefault('eps_f', 1E-8)
+        self.param.setdefault('eps_f', 1E-14)
         self.param.setdefault('m', 10)
         self.param.setdefault('grad_test', False)
         self.param.setdefault('ls', 0)
@@ -293,11 +293,6 @@ class LBFGSB:
             return OptimizeResult(x=x, fun=f, jac=g,
                                   nit=0, nfev=fun_eval, status=0, success=True,
                                   message="Solved")
-
-        if (f - f_old) / (np.abs(f) + 1.) <= self.params['eps_f']:
-            return OptimizeResult(x=x, fun=f, jac=g,
-                                  nit=0, nfev=fun_eval, status=0, success=True,
-                                  message='Solved')
         
         # initial direction
         d = -g * self.working
@@ -401,7 +396,7 @@ class LBFGSB:
                 message = "Solved"
                 break
 
-            if (f - f_old) / (np.abs(f) + 1) <= self.param['eps_f']:
+            if (f_old - f) / (np.abs(f) + 1) <= self.param['eps_f']:
                 status = 0
                 message = "Solved"
                 break
