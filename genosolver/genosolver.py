@@ -97,7 +97,7 @@ class LBFGSB:
 
     def all_options(self):
         return {'verbose', 'max_iter', 'step_max', 'max_ls',
-                'eps_pg', 'm', 'grad_test', 'ls'}
+                'eps_pg', 'eps_f', 'm', 'grad_test', 'ls'}
 
     def set_options(self, options):
         unsupported = [opt for opt in options.keys() if opt not in self.all_options()]
@@ -110,6 +110,7 @@ class LBFGSB:
         self.param.setdefault('step_max', 1E10)
         self.param.setdefault('max_ls', 30)
         self.param.setdefault('eps_pg', 1E-5)
+        self.param.setdefault('eps_f', 1E-8)
         self.param.setdefault('m', 10)
         self.param.setdefault('grad_test', False)
         self.param.setdefault('ls', 0)
@@ -293,6 +294,11 @@ class LBFGSB:
                                   nit=0, nfev=fun_eval, status=0, success=True,
                                   message="Solved")
 
+        if (f - f_old) / (np.abs(f) + 1.) <= self.params['eps_f']:
+            return OptimizeResult(x=x, fun=f, jac=g,
+                                  nit=0, nfev=fun_eval, status=0, success=True,
+                                  message='Solved')
+        
         # initial direction
         d = -g * self.working
         d /= np.linalg.norm(d)
@@ -343,7 +349,7 @@ class LBFGSB:
                 f, g, x, step, fun_eval_ls = self.line_search(x, d, step_max, f, g, quadratic=False)
 
             if f > f_old:
-                print('error')
+                print('Error, f > f_old: %.5f > %.5f' % (f, f_old))
                 step = None
 
             if step is None:
@@ -395,12 +401,11 @@ class LBFGSB:
                 message = "Solved"
                 break
 
-            '''
-            if (f_old - f) / (abs(f) + 1) <= self.param['eps_f']:
+            if (f - f_old) / (np.abs(f) + 1) <= self.param['eps_f']:
                 status = 0
                 message = "Solved"
                 break
-            '''
+
 
             s = x - x_old
             y = g - g_old
