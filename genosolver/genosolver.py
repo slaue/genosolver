@@ -97,7 +97,8 @@ class LBFGSB:
 
     def all_options(self):
         return {'verbose', 'max_iter', 'step_max', 'max_ls',
-                'eps_pg', 'eps_f', 'm', 'grad_test', 'ls'}
+                'eps_pg', 'eps_f', 'm', 'grad_test', 'ls',
+                'callback'}
 
     def set_options(self, options):
         unsupported = [opt for opt in options.keys() if opt not in self.all_options()]
@@ -114,6 +115,7 @@ class LBFGSB:
         self.param.setdefault('m', 10)
         self.param.setdefault('grad_test', False)
         self.param.setdefault('ls', 0)
+        self.param.setdefault('callback', None)
         self.max_m = self.param['m']
 
     def init_matrices(self):
@@ -310,6 +312,12 @@ class LBFGSB:
         while True:
             k += 1
 
+            if not self.param['callback'] is None:
+                if self.param['callback'](x, f):
+                    status = 0
+                    message = "Callback returned True"
+                    break
+
             if self.param['grad_test']:
                 self.grad_test(x)
 
@@ -344,7 +352,7 @@ class LBFGSB:
                 f, g, x, step, fun_eval_ls = self.line_search(x, d, step_max, f, g, quadratic=False)
 
             if f > f_old:
-                print('Error, f > f_old: %.5f > %.5f' % (f, f_old))
+                print('Error, f_new > f_old: %.5f > %.5f' % (f, f_old))
                 step = None
 
             if step is None:
