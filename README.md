@@ -17,9 +17,9 @@ See [geno-project.org](http://www.geno-project.org) for more details, examples, 
 
 ## Authors
 
-* [**Sören Laue**](https://theinf2.informatik.uni-jena.de/People/Soeren+Laue.html) - most of the solver -
-* [**Mark Blacher**](https://theinf2.informatik.uni-jena.de/People/Mark+Blacher.html) - GPU support
-* [**Matthias Mitterreiter**](https://theinf2.informatik.uni-jena.de/People/Matthias+Mitterreiter.html)
+* [**Sören Laue**](https://laue.ai) - most of the solver -
+* [**Mark Blacher**](https://www.ti2.uni-jena.de/team/mark-blacher) - GPU support
+* [**Matthias Mitterreiter**](https://www.ti2.uni-jena.de/team/matthias-mitterreiter)
 
 
 ## License
