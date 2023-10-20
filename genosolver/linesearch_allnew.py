@@ -269,10 +269,15 @@ def dcsrch(f: float, # &
 
     # finite
     for _i in range(10):
-      if (np.isfinite(f) or np.isneginf(f)) and np.isfinite(g).all():
+      if np.isneginf(f):
         break
+
+      if np.isfinite(f) and np.isfinite(g).all():
+        break
+
       if verbose >= 99:
         print('f or g has inf or nan')
+
       stp = 0.5 * stp
       stpmax = stp
       f, g, grad = fg(stp)
