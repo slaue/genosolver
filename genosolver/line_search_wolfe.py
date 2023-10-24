@@ -568,7 +568,7 @@ from linesearch_allnew import dcsrch
 def line_search_wolfe3(f, fprime, xk, pk, gfk=None,
                        old_fval=None, old_old_fval=None,
                        args=(), c1=1e-4, c2=0.9, amax=50., amin=1e-14,
-                       xtol=0.1, verbose = 0):
+                       xtol=0.1, verbose=0):
 
     stp = 1.
     stp = max(amin, stp)

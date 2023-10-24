@@ -88,9 +88,10 @@ class LBFGSB:
         self.x = x0
         self.np = np
         self.n = len(self.x)
-        self.constrained = not (lb is None and ub is None)
+        #self.constrained = not (lb is None and ub is None)
         self.lb = lb if not lb is None else np.full(self.n, -np.inf)
         self.ub = ub if not ub is None else np.full(self.n, np.inf)
+        self.constrained = not (np.all(self.lb == -np.inf) and np.all(self.ub == np.inf)) 
         self.set_options(options)
         self.init_matrices()
         self.working = np.full(self.n, 1.0)
@@ -151,7 +152,10 @@ class LBFGSB:
             self.working = np.full(self.n, 1.0)
             self.working[(x <= self.lb + eps * 2) & (g >= 0)] = 0
             self.working[(x >= self.ub - eps * 2) & (g <= 0)] = 0
-        pg = np.linalg.norm(np.minimum(np.maximum(x - g, self.lb), self.ub) - x, np.inf)
+            pg = np.linalg.norm(g[self.working > 0], np.inf)
+            #pg = np.linalg.norm(np.minimum(np.maximum(x - g, self.lb), self.ub) - x, np.inf)
+        else:
+            pg = np.linalg.norm(g, np.inf)
         return pg
 
     def max_step_size(self, x, d):
@@ -307,7 +311,8 @@ class LBFGSB:
                                                 "Proj.Grad."))
 
 #        f_old = f + np.linalg.norm(g) / 2
-        f_old = None
+        f_old = f
+        x_old = x
         k = 0
         while True:
             k += 1
@@ -350,10 +355,10 @@ class LBFGSB:
                 f, g, x, step, fun_eval_ls = self.line_search(x, d, step_max, f, g, quadratic=True)
             else:
                 f, g, x, step, fun_eval_ls = self.line_search(x, d, step_max, f, g, quadratic=False)
-
-            if f > f_old:
-                print('Error, f_new > f_old: %.5f > %.5f' % (f, f_old))
-                step = None
+            
+            if f >= f_old:
+                print('Error, f_new >= f_old: %.5f >= %.5f' % (f, f_old))
+                #step = None
 
             if step is None:
                 status = 3
@@ -395,23 +400,33 @@ class LBFGSB:
 
             # check for convergence
             if k >= self.param['max_iter']:
+                f_old = f
+                x_old = x
+                g_old = x
                 status = 2
                 message = "Maximum iterations reached"
                 break
 
             if pg <= self.param['eps_pg']:
+                f_old = f
+                x_old = x
+                g_old = g
                 status = 0
-                message = "Solved"
+                message = "Solved eps_pg"
                 break
 
             if (f_old - f) / (np.abs(f) + 1) <= self.param['eps_f']:
+                f_old = f
+                g_old = g
+                x_old = x
                 status = 0
-                message = "Solved"
+                message = "Solved eps_f"
                 break
 
 
             s = x - x_old
             y = g - g_old
+        
             if np.dot(s, y) > eps * np.dot(y, y):
                 self.add_corrections(s, y)
             elif self.param['verbose'] > 100:
@@ -430,7 +445,7 @@ class LBFGSB:
             x_old = x
             g_old = g
         
-        return OptimizeResult(x=x, fun=f, jac=g,
+        return OptimizeResult(x=x_old, fun=f_old, jac=g_old,
                               nit=k, nfev=fun_eval,
                               status=status, success=(status==0),
                               message=message)
