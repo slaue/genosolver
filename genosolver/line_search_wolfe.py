@@ -601,3 +601,52 @@ def line_search_wolfe3(f, fprime, xk, pk, gfk=None,
         raise Exception('Line search error')
 
     return stp, (fg_cnt+cnt_on), 0, fval, old_fval, grad
+
+
+def line_search_wolfe3_debug(f, fprime, xk, pk, gfk=None,
+                             old_fval=None, old_old_fval=None,
+                             args=(), c1=1e-4, c2=0.9, amax=50., amin=1e-14,
+                             xtol=0.1, verbose=10, plot_path='./steps'):
+
+    stp = 1.
+    stp = max(amin, stp)
+    stp = min(stp, amax)
+    
+    task = 'START'
+    ftol = c1
+    gtol = c2
+
+    steps_array = []
+    def phi(s):
+        steps_array.append(s)
+        fx = f(xk + s*pk)
+        gx = fprime(xk + s*pk)
+        gd = np.dot(gx, pk)
+        return fx, gd, gx
+    
+    cnt_on = 0
+    if old_fval is None or gfk is None:
+        old_fval, _, gfk = phi(0)
+        cnt_on = 1
+
+    fval = old_fval
+    gval = np.dot(gfk, pk)
+    fval, grad, stp, task, fg_cnt = dcsrch(fval, gval, stp, ftol, gtol, xtol, amin, amax, task, phi, verbose,grad=gfk)
+
+    if old_fval is None or gfk is None:
+        fg_cnt += 1
+
+    steps_array.append(stp)
+    import matplotlib.pyplot as plt
+    import os, datetime
+    os.makedirs(plot_path, exist_ok=True)
+    plt.plot(list(range(len(steps_array))), steps_array)
+    plot_name = datetime.datetime.now().strftime('%Y-%m-%d-%H_%M_%S')
+    plt.save(os.path.join(plot_path, f'{plot_name}.pdf'))
+    plt.close()
+    
+    if task == 'ERROR':
+        print('Error in line search')
+        raise Exception('Line search error')
+
+    return stp, (fg_cnt+cnt_on), 0, fval, old_fval, grad
