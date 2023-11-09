@@ -358,7 +358,7 @@ class LBFGSB:
             
             if f >= f_old:
                 print('Error, f_new >= f_old: %.5f >= %.5f ; with step size: %.5f' % (f, f_old, step))
-                #step = None
+                step = None
 
             if step is None:
                 status = 3
