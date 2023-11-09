@@ -640,7 +640,9 @@ def line_search_wolfe3_debug(f, fprime, xk, pk, gfk=None,
     import matplotlib.pyplot as plt
     import os, datetime
     os.makedirs(plot_path, exist_ok=True)
-    plt.plot(list(range(len(steps_array))), steps_array)
+    fig, axs = plt.subplots(nrows=1, ncols=2)
+    axs[0].plot(list(range(len(steps_array))), steps_array)
+    axs[1].semilogy(list(range(len(steps_array))), steps_array)
     plot_name = datetime.datetime.now().strftime('%Y-%m-%d-%H_%M_%S')
     plt.save(os.path.join(plot_path, f'{plot_name}.pdf'))
     plt.close()
