@@ -606,7 +606,7 @@ def line_search_wolfe3(f, fprime, xk, pk, gfk=None,
 def line_search_wolfe3_debug(f, fprime, xk, pk, gfk=None,
                              old_fval=None, old_old_fval=None,
                              args=(), c1=1e-4, c2=0.9, amax=50., amin=1e-14,
-                             xtol=0.1, verbose=10, plot_path='./steps'):
+                             xtol=0.1, verbose=100, plot_path=None):
 
     stp = 1.
     stp = max(amin, stp)
@@ -639,14 +639,17 @@ def line_search_wolfe3_debug(f, fprime, xk, pk, gfk=None,
     steps_array.append(stp)
     import matplotlib.pyplot as plt
     import os, datetime
-    os.makedirs(plot_path, exist_ok=True)
     fig, axs = plt.subplots(nrows=1, ncols=2)
     axs[0].plot(list(range(len(steps_array))), steps_array)
     axs[1].semilogy(list(range(len(steps_array))), steps_array)
-    plot_name = datetime.datetime.now().strftime('%Y-%m-%d-%H_%M_%S')
-    plt.save(os.path.join(plot_path, f'{plot_name}.pdf'))
+    if not plot_path is None: 
+      os.makedirs(plot_path, exist_ok=True)
+      plot_name = datetime.datetime.now().strftime('%Y-%m-%d-%H_%M_%S')
+      plt.save(os.path.join(plot_path, f'{plot_name}.pdf'))
+    else:
+        plt.show()
     plt.close()
-    
+    print(task)
     if task == 'ERROR':
         print('Error in line search')
         raise Exception('Line search error')

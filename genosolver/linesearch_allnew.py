@@ -283,6 +283,8 @@ def dcsrch(f: float, # &
       f, g, grad = fg(stp)
       fg_cnt += 1
     else:
+      if verbose >= 99:
+        print('Line search couldn\'t find a step inside feasible region')
       return f, g, None, 'WARNING', fg_cnt   
     
     ftest = finit + stp*gtest
