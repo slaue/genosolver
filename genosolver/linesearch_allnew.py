@@ -266,6 +266,7 @@ def dcsrch(f: float, # &
   for _ in range(20):
     f, g, grad = fg(stp)
     fg_cnt += 1
+    stp_old = stp
 
     # finite
     for _i in range(10):
@@ -409,4 +410,4 @@ def dcsrch(f: float, # &
   task = 'WARNING'
   if (verbose >= 99):
     print('MAX ITER')
-  return f, grad, stp, task, fg_cnt
+  return f, grad, stp_old, task, fg_cnt
