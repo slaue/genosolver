@@ -639,8 +639,10 @@ def line_search_wolfe3_debug(f, fprime, xk, pk, gfk=None,
     steps_array.append(stp)
     import matplotlib.pyplot as plt
     import os, datetime
-    fig, axs = plt.subplots(nrows=1, ncols=2)
-    axs[0].plot(list(range(len(steps_array))), steps_array)
+    fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(12,6))
+    step_space = np.linspace(0., max(steps_array), 20)
+    axs[0].plot(step_space, [ f(xk + s*pk) for s in step_space ])
+    axs[0].plot(steps_array, [ f(xk + s*pk) for s in steps_array], '.')
     axs[1].semilogy(list(range(len(steps_array))), steps_array)
     if not plot_path is None: 
       os.makedirs(plot_path, exist_ok=True)
@@ -649,6 +651,7 @@ def line_search_wolfe3_debug(f, fprime, xk, pk, gfk=None,
     else:
         plt.show()
     plt.close()
+    
     print(task)
     if task == 'ERROR':
         print('Error in line search')
