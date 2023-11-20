@@ -179,7 +179,7 @@ class LBFGSB:
         #from scipy.optimize._optimize import _line_search_wolfe12 as LINE_SEARCH
         import sys, os
         sys.path.append(os.path.dirname(__file__))
-        from line_search_wolfe import line_search_wolfe3 as LINE_SEARCH
+        from line_search_wolfe import line_search_wolfe3_debug as LINE_SEARCH
         sys.path.pop()
         
         ff = lambda x: self.fg(x)[0]
@@ -356,8 +356,9 @@ class LBFGSB:
             else:
                 f, g, x, step, fun_eval_ls = self.line_search(x, d, step_max, f, g, quadratic=False)
             
+            
             if f > f_old:
-                print('Error, f_new > f_old: %.5f > %.5f' % (f, f_old))
+                print('Error, f_new > f_old: %.15f > %.15f' % (f, f_old))
                 print('with step size', step)
                 step = None
 
