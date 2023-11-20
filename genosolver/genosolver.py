@@ -356,8 +356,8 @@ class LBFGSB:
             else:
                 f, g, x, step, fun_eval_ls = self.line_search(x, d, step_max, f, g, quadratic=False)
             
-            if f >= f_old:
-                print('Error, f_new >= f_old: %.5f >= %.5f' % (f, f_old))
+            if f > f_old:
+                print('Error, f_new > f_old: %.5f > %.5f' % (f, f_old))
                 print('with step size', step)
                 step = None
 
