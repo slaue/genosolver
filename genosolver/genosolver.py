@@ -357,8 +357,8 @@ class LBFGSB:
                 f, g, x, step, fun_eval_ls = self.line_search(x, d, step_max, f, g, quadratic=False)
             
             
-            if f > f_old:
-                print('Error, f_new > f_old: %.15f > %.15f' % (f, f_old))
+            if f >= f_old:
+                print('Error, f_new >= f_old: %.15f >= %.15f' % (f, f_old))
                 print('with step size', step)
                 step = None
 
@@ -366,15 +366,15 @@ class LBFGSB:
                 status = 3
                 message = "Line search failed"
                 warnings.warn(message)
-                break
-            '''
+            
             if step is None:
+
                 x = x_old
                 f, g = self.fg(x)
                 fun_eval += 1
                 pg = self.proj_grad_norm(x, g)
                 
-                self.grad_test(x)
+                #self.grad_test(x)
                 # line search did not converge
                 if self.num_cors() > 0:
                     # maybe clearing up all correction pairs will help
@@ -385,14 +385,16 @@ class LBFGSB:
                     # initial direction
                     d = -g * self.working
                     d /= np.linalg.norm(d)
-                    f_old = None
+                    g_old = g
+                    f_old = f
                     continue
                 else:
                     # really cannot do any progress due to numerical errors
                     status = 3
                     message = "Line search failed"
                     break
-            '''
+            
+            ###
             x = self.force_bounds(x)
             pg = self.proj_grad_norm(x, g)
             fun_eval += fun_eval_ls

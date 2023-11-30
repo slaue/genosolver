@@ -323,7 +323,7 @@ def dcsrch(f: float, # &
     '''
     #      if (f <= ftest && std::fabs(g) <= gtol * (-ginit))
     eps: float = 0#1E-6
-    if (f <= ftest + eps*(abs(ftest) + 1) and abs(g) <= gtol * (-ginit)):
+    if (f < ftest + eps*(abs(ftest) + 1) and abs(g) <= gtol * (-ginit)):
       task = 'CONVERGENCE'
       if verbose >= 99:
           print('Strong Wolfe satisfied')

@@ -635,23 +635,23 @@ def line_search_wolfe3_debug(f, fprime, xk, pk, gfk=None,
 
     if old_fval is None or gfk is None:
         fg_cnt += 1
-
-    steps_array.append(stp)
-    import matplotlib.pyplot as plt
-    import os, datetime
-    fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(14,6))
-    step_space = np.linspace(0., max(steps_array), 25)
-    axs[0].plot(step_space, [ f(xk + s*pk) for s in step_space ])
-    axs[0].plot(steps_array, [ f(xk + s*pk) for s in steps_array], '.')
-    axs[1].semilogy(list(range(len(steps_array))), steps_array)
-    if not plot_path is None: 
-      os.makedirs(plot_path, exist_ok=True)
-      plot_name = datetime.datetime.now().strftime('%Y-%m-%d-%H_%M_%S')
-      plt.save(os.path.join(plot_path, f'{plot_name}.pdf'))
-    else:
-        plt.show()
-    plt.close()
-    
+    if stp:
+        steps_array.append(stp)
+    if stp != 1.:
+        import matplotlib.pyplot as plt
+        import os, datetime
+        fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(14,6))
+        step_space = np.linspace(0., max(steps_array), 50)
+        axs[0].plot(step_space, [ f(xk + s*pk) for s in step_space ])
+        axs[0].plot(steps_array, [ f(xk + s*pk) for s in steps_array], '.')
+        axs[1].semilogy(list(range(len(steps_array))), steps_array)
+        if not plot_path is None: 
+          os.makedirs(plot_path, exist_ok=True)
+          plot_name = datetime.datetime.now().strftime('%Y-%m-%d-%H_%M_%S')
+          plt.save(os.path.join(plot_path, f'{plot_name}.pdf'))
+        else:
+            plt.show()
+        plt.close()
     print(task)
     if task == 'ERROR':
         print('Error in line search')
