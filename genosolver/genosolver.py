@@ -152,7 +152,7 @@ class LBFGSB:
             self.working = np.full(self.n, 1.0)
             self.working[(x <= self.lb + eps * 2) & (g >= 0)] = 0
             self.working[(x >= self.ub - eps * 2) & (g <= 0)] = 0
-            pg = np.linalg.norm(g[self.working > 0], np.inf)
+            pg = np.linalg.norm(g[self.working > 0], np.inf) if any(self.working > 0) else 0.
             #pg = np.linalg.norm(np.minimum(np.maximum(x - g, self.lb), self.ub) - x, np.inf)
         else:
             pg = np.linalg.norm(g, np.inf)
@@ -179,7 +179,7 @@ class LBFGSB:
         #from scipy.optimize._optimize import _line_search_wolfe12 as LINE_SEARCH
         import sys, os
         sys.path.append(os.path.dirname(__file__))
-        from line_search_wolfe import line_search_wolfe3_debug as LINE_SEARCH
+        from line_search_wolfe import line_search_wolfe3 as LINE_SEARCH
         sys.path.pop()
         
         ff = lambda x: self.fg(x)[0]
