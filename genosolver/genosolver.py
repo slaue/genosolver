@@ -206,7 +206,7 @@ class LBFGSB:
         k, _ = self.S.shape
         rho = np.empty(k)
         alpha = np.empty(k)
-        eps = 1E-20
+        eps = 1E-40
         if self.constrained:
             Yw = self.Y * self.working
             q = g * self.working
@@ -277,7 +277,7 @@ class LBFGSB:
 
     def minimize(self):
         np = self.np
-        eps = 1E-20
+        eps = 1E-40
         # check for feasibility
         if np.any(self.lb > self.ub):
             return OptimizeResult(x=self.x, fun=None, jac=None,
