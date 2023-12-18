@@ -36,6 +36,7 @@
 """
 
 import warnings
+from line_search import line_search_wolfe3
 
 class OptimizeResult(dict):
     """
@@ -174,19 +175,8 @@ class LBFGSB:
 
     
     def line_search(self, x_old, d, step_max, f_old, g_old, quadratic):
-        #from scipy.optimize import line_search as LINE_SEARCH
-        #from scipy.optimize._linesearch import line_search_wolfe1 as LINE_SEARCH
-        #from scipy.optimize._optimize import _line_search_wolfe12 as LINE_SEARCH
-        import sys, os
-        sys.path.append(os.path.dirname(__file__))
-        from line_search_wolfe import line_search_wolfe3 as LINE_SEARCH
-        sys.path.pop()
-        
-        ff = lambda x: self.fg(x)[0]
-        gg = lambda x: self.fg(x)[1]
-        maxiter = 20 # np.log(step_max) + 1. ?
-        
-        step, fc, gc, f, _, g = LINE_SEARCH(f=ff, fprime=gg, xk=x_old, pk=d, gfk=g_old, old_fval=f_old, old_old_fval=None, c1=1e-4, c2=.9, amax=step_max)#, maxiter=maxiter)
+
+        step, fc, gc, f, _, g = line_search_wolfe3(fg=self.fg, xk=x_old, pk=d, gfk=g_old, old_fval=f_old, old_old_fval=None, c1=1e-4, c2=.9, amax=step_max, np=self.np)
         
         if step is None:
             x = x_old

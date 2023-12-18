@@ -22,7 +22,7 @@
 //    E-mail: soeren.laue@uni-jena.de
 //    Web:    http://www.geno-project.org
 '''
-import numpy as np
+import numpy
 
 def dcstep(stx: float, # &
            fx: float, # &
@@ -36,7 +36,8 @@ def dcstep(stx: float, # &
            brackt: bool, # &
            stpmin: float, # const
            stpmax: float, # const
-           verbose: int):
+           verbose: int,
+           np=numpy):
   '''
   double const zero  = 0.0,
                p66   = 0.66,
@@ -173,7 +174,8 @@ def dcsrch(f: float, # &
            task: str, # TaskType&
            fg, # !!!!!!!
            verbose: int = 0,
-           grad = None):
+           grad = None,
+           np=numpy):
   '''
   double const zero = 0.0,
                p5   = 0.5,
@@ -347,7 +349,7 @@ def dcsrch(f: float, # &
       gym = gy - gtest
       #Call dcstep to update stx, sty, and to compute the new step.
       #std::cout << "called dcstep 1" << std::endl;
-      stx,fxm,gxm,sty,fym,gym,stp,brackt = dcstep(stx,fxm,gxm,sty,fym,gym,stp,fm,gm,brackt,stmin,stmax, verbose)
+      stx,fxm,gxm,sty,fym,gym,stp,brackt = dcstep(stx,fxm,gxm,sty,fym,gym,stp,fm,gm,brackt,stmin,stmax,verbose,np=np)
       #Reset the function and derivative values for f.
       fx = fxm + stx*gtest
       fy = fym + sty*gtest
@@ -356,7 +358,7 @@ def dcsrch(f: float, # &
     else:
       #Call dcstep to update stx, sty, and to compute the new step.
       #std::cout << "called dcstep 2" << std::endl;
-      stx,fx,gx,sty,fy,gy,stp,brackt = dcstep(stx,fx,gx,sty,fy,gy,stp,f,g,brackt,stmin,stmax, verbose)
+      stx,fx,gx,sty,fy,gy,stp,brackt = dcstep(stx,fx,gx,sty,fy,gy,stp,f,g,brackt,stmin,stmax,verbose,np=np)
       '''
       // std::cout << "stx = " << stx << std::endl;
       // std::cout << "fx  = " << fx << std::endl;
@@ -413,3 +415,95 @@ def dcsrch(f: float, # &
   if (verbose >= 99):
     print('MAX ITER')
   return f, grad, stp_old, task, fg_cnt
+
+
+def line_search_wolfe3(fg, xk, pk, gfk=None,
+                       old_fval=None, old_old_fval=None,
+                       args=(), c1=1e-4, c2=0.9, amax=50., amin=1e-14,
+                       xtol=0.1, verbose=0, np=numpy):
+
+    stp = 1.
+    stp = max(amin, stp)
+    stp = min(stp, amax)
+    
+    task = 'START'
+    ftol = c1
+    gtol = c2
+
+    def phi(s):
+        fx, gx = fg(xk + s*pk)
+        gd = np.dot(gx, pk)
+        return fx, gd, gx
+    
+    cnt_on = 0
+    if old_fval is None or gfk is None:
+        old_fval, _, gfk = phi(0)
+        cnt_on = 1
+
+    fval = old_fval
+    gval = np.dot(gfk, pk)
+    fval, grad, stp, task, fg_cnt = dcsrch(fval, gval, stp, ftol, gtol, xtol, amin, amax, task, phi, verbose, grad=gfk, np=np)
+
+    if old_fval is None or gfk is None:
+        fg_cnt += 1
+    
+    if task == 'ERROR':
+        print('Error in line search')
+        raise Exception('Line search error')
+
+    return stp, (fg_cnt+cnt_on), 0, fval, old_fval, grad
+
+def line_search_wolfe3_debug(f, fprime, xk, pk, gfk=None,
+                             old_fval=None, old_old_fval=None,
+                             args=(), c1=1e-4, c2=0.9, amax=50., amin=1e-14,
+                             xtol=0.1, verbose=100, np=numpy, plot_path=None):
+
+    stp = 1.
+    stp = max(amin, stp)
+    stp = min(stp, amax)
+    
+    task = 'START'
+    ftol = c1
+    gtol = c2
+
+    steps_array = []
+    def phi(s):
+        steps_array.append(s)
+        fx, gx = fg(xk + s*pk)
+        gd = np.dot(gx, pk)
+        return fx, gd, gx
+    
+    cnt_on = 0
+    if old_fval is None or gfk is None:
+        old_fval, _, gfk = phi(0)
+        cnt_on = 1
+
+    fval = old_fval
+    gval = np.dot(gfk, pk)
+    fval, grad, stp, task, fg_cnt = dcsrch(fval, gval, stp, ftol, gtol, xtol, amin, amax, task, phi, verbose, grad=gfk, np=np)
+
+    if old_fval is None or gfk is None:
+        fg_cnt += 1
+    if stp:
+        steps_array.append(stp)
+    if stp != 1.:
+        import matplotlib.pyplot as plt
+        import os, datetime
+        fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(14,6))
+        step_space = np.linspace(0., max(steps_array), 50)
+        axs[0].plot(step_space, [ f(xk + s*pk) for s in step_space ])
+        axs[0].plot(steps_array, [ f(xk + s*pk) for s in steps_array], '.')
+        axs[1].semilogy(list(range(len(steps_array))), steps_array)
+        if not plot_path is None: 
+          os.makedirs(plot_path, exist_ok=True)
+          plot_name = datetime.datetime.now().strftime('%Y-%m-%d-%H_%M_%S')
+          plt.save(os.path.join(plot_path, f'{plot_name}.pdf'))
+        else:
+            plt.show()
+        plt.close()
+    print(task)
+    if task == 'ERROR':
+        print('Error in line search')
+        raise Exception('Line search error')
+
+    return stp, (fg_cnt+cnt_on), 0, fval, old_fval, grad
