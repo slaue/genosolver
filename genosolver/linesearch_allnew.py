@@ -226,7 +226,7 @@ def dcsrch(f: float, # &
 
         #        Exit if there are errors on input.
   if (task == 'ERROR'):
-    return f, g, stp, task, 0
+    return f, grad, stp, task, 0
 
 #        Initialize local variables.
 
@@ -286,7 +286,7 @@ def dcsrch(f: float, # &
     else:
       if verbose >= 99:
         print('Line search couldn\'t find a step inside feasible region')
-      return f, g, None, 'WARNING', fg_cnt   
+      return f, grad, None, 'WARNING', fg_cnt   
     
     ftest = finit + stp*gtest
     if (stage == 1 and f <= ftest and g >= 0.0):
