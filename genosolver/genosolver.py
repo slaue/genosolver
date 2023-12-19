@@ -176,7 +176,11 @@ class LBFGSB:
     
     def line_search(self, x_old, d, step_max, f_old, g_old, quadratic):
 
-        step, fc, gc, f, _, g = line_search_wolfe3(fg=self.fg, xk=x_old, pk=d, gfk=g_old, old_fval=f_old, old_old_fval=None, c1=1e-4, c2=.9, amax=step_max, np=self.np)
+        step, fg_cnt, f, g = line_search_wolfe3(fg=self.fg, xk=x_old, d=d, 
+                                                g=g_old, old_fval=f_old, 
+                                                old_old_fval=None, 
+                                                c1=1e-4, c2=.9, 
+                                                amax=step_max, np=self.np)
         
         if step is None:
             x = x_old
@@ -186,10 +190,9 @@ class LBFGSB:
             x = x_old + step * d
             if f is None or g is None:
                 f, g = self.fg(x)
-                fc += 1
-                gc += 1
+                fg_cnt += 1
         
-        return f, g, x, step, max(fc, gc)
+        return f, g, x, step, fg_cnt
 
     def two_loop(self, g):
         np = self.np
