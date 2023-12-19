@@ -453,7 +453,7 @@ def line_search_wolfe3(fg, xk, pk, gfk=None,
 
     return stp, (fg_cnt+cnt_on), 0, fval, old_fval, grad
 
-def line_search_wolfe3_debug(f, fprime, xk, pk, gfk=None,
+def line_search_wolfe3_debug(fg, xk, pk, gfk=None,
                              old_fval=None, old_old_fval=None,
                              args=(), c1=1e-4, c2=0.9, amax=50., amin=1e-14,
                              xtol=0.1, verbose=100, np=numpy, plot_path=None):
@@ -491,8 +491,8 @@ def line_search_wolfe3_debug(f, fprime, xk, pk, gfk=None,
         import os, datetime
         fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(14,6))
         step_space = np.linspace(0., max(steps_array), 50)
-        axs[0].plot(step_space, [ f(xk + s*pk) for s in step_space ])
-        axs[0].plot(steps_array, [ f(xk + s*pk) for s in steps_array], '.')
+        axs[0].plot(step_space, [ fg(xk + s*pk)[0] for s in step_space ])
+        axs[0].plot(steps_array, [ fg(xk + s*pk)[0] for s in steps_array], '.')
         axs[1].semilogy(list(range(len(steps_array))), steps_array)
         if not plot_path is None: 
           os.makedirs(plot_path, exist_ok=True)
