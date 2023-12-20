@@ -150,6 +150,7 @@ class LBFGSB:
         np = self.np
         eps = 1E-10
         if self.constrained:
+            g = np.array(g)
             self.working = np.full(self.n, 1.0)
             self.working[(x <= self.lb + eps * 2) & (g >= 0)] = 0
             self.working[(x >= self.ub - eps * 2) & (g <= 0)] = 0
