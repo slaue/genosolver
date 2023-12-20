@@ -96,10 +96,11 @@ class LBFGSB:
         self.set_options(options)
         self.init_matrices()
         self.working = np.full(self.n, 1.0)
+        self.eps_f_count = 0
 
     def all_options(self):
         return {'verbose', 'max_iter', 'max_ls',
-                'eps_pg', 'eps_f', 'm', 'grad_test', 'ls',
+                'eps_pg', 'eps_f', 'n_eps_f', 'm', 'grad_test', 'ls',
                 'callback'}
 
     def set_options(self, options):
@@ -113,6 +114,7 @@ class LBFGSB:
         self.param.setdefault('max_ls', 30)
         self.param.setdefault('eps_pg', 1E-5)
         self.param.setdefault('eps_f', 1E-14)
+        self.param.setdefault('n_eps_f', 10)
         self.param.setdefault('m', 10)
         self.param.setdefault('grad_test', False)
         self.param.setdefault('ls', 0)
@@ -413,12 +415,16 @@ class LBFGSB:
                 break
 
             if (f_old - f) / (np.abs(f) + 1) <= self.param['eps_f']:
-                f_old = f
-                g_old = g
-                x_old = x
-                status = 0
-                message = "Solved eps_f"
-                break
+                self.eps_f_count += 1
+                if self.eps_f_count >= self.param['n_eps_f']:
+                    f_old = f
+                    g_old = g
+                    x_old = x
+                    status = 0
+                    message = "Solved eps_f"
+                    break
+            else:
+                self.eps_f_count = 0
 
 
             s = x - x_old

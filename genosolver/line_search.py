@@ -152,7 +152,7 @@ def dcsrch(f: float,
            grad = None,
            np=numpy):
 
-  stpmin = min(stpmin, stpmax)  
+  stpmin = min(stpmin, stpmax)
 
   xtrapl = 1.1
   xtrapu = 4.0
