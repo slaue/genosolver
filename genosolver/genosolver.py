@@ -90,15 +90,15 @@ class LBFGSB:
         self.np = np
         self.n = len(self.x)
         #self.constrained = not (lb is None and ub is None)
-        self.lb = lb if not lb is None else np.full(self.n, -np.inf)
-        self.ub = ub if not ub is None else np.full(self.n, np.inf)
+        self.lb = np.atleast_1d(lb) if not lb is None else np.full(self.n, -np.inf)
+        self.ub = np.atleast_1d(ub) if not ub is None else np.full(self.n, np.inf)
         self.constrained = not (np.all(self.lb == -np.inf) and np.all(self.ub == np.inf)) 
         self.set_options(options)
         self.init_matrices()
         self.working = np.full(self.n, 1.0)
 
     def all_options(self):
-        return {'verbose', 'max_iter', 'step_max', 'max_ls',
+        return {'verbose', 'max_iter', 'max_ls',
                 'eps_pg', 'eps_f', 'm', 'grad_test', 'ls',
                 'callback'}
 
@@ -110,7 +110,6 @@ class LBFGSB:
         self.param = options
         self.param.setdefault('verbose', 0)
         self.param.setdefault('max_iter', 1000)
-        self.param.setdefault('step_max', 1E10)
         self.param.setdefault('max_ls', 30)
         self.param.setdefault('eps_pg', 1E-5)
         self.param.setdefault('eps_f', 1E-14)
@@ -150,7 +149,7 @@ class LBFGSB:
         np = self.np
         eps = 1E-10
         if self.constrained:
-            g = np.array(g)
+            g = np.atleast_1d(g)
             self.working = np.full(self.n, 1.0)
             self.working[(x <= self.lb + eps * 2) & (g >= 0)] = 0
             self.working[(x >= self.ub - eps * 2) & (g <= 0)] = 0
@@ -321,7 +320,7 @@ class LBFGSB:
                 self.grad_test(x)
 
             step_max = self.max_step_size(x, d)
-            step_max = min(step_max, self.param['step_max'])
+            step_max = min(step_max, 1E10)
             if self.param['verbose'] >= 100:
                 print('lb', self.lb)
                 print('x', x)
