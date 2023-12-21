@@ -100,7 +100,7 @@ class LBFGSB:
 
     def all_options(self):
         return {'verbose', 'max_iter', 'max_ls',
-                'eps_pg', 'eps_f', 'n_eps_f', 'm', 'grad_test', 'ls',
+                'eps_pg', 'eps_f', 'n_eps_f', 'm', 'grad_test',
                 'callback'}
 
     def set_options(self, options):
@@ -117,7 +117,6 @@ class LBFGSB:
         self.param.setdefault('n_eps_f', 10)
         self.param.setdefault('m', 10)
         self.param.setdefault('grad_test', False)
-        self.param.setdefault('ls', 0)
         self.param.setdefault('callback', None)
         self.max_m = self.param['m']
 
@@ -176,7 +175,7 @@ class LBFGSB:
         return step_max
 
     
-    def line_search(self, x_old, d, step_max, f_old, g_old, quadratic):
+    def line_search(self, x_old, d, step_max, f_old, g_old):
 
         step, fg_cnt, f, g = line_search_wolfe3(fg=self.fg, xk=x_old, d=d, 
                                                 g=g_old, old_fval=f_old, 
@@ -345,12 +344,9 @@ class LBFGSB:
                     f_old =  None
                     continue
             '''
-            f_old = f
-            if self.param['ls'] == 2:
-                f, g, x, step, fun_eval_ls = self.line_search(x, d, step_max, f, g, quadratic=True)
-            else:
-                f, g, x, step, fun_eval_ls = self.line_search(x, d, step_max, f, g, quadratic=False)
             
+            f_old = f
+            f, g, x, step, fun_eval_ls = self.line_search(x, d, step_max, f, g)
             
             if f >= f_old:
                 print('Error, f_new >= f_old: %.15f >= %.15f' % (f, f_old))
@@ -515,7 +511,7 @@ class Augmented_Lagrangian:
 
     def set_options(self, options):
         all_options = {'verbose', 'max_iter', 'step_max', 'max_ls',
-                       'eps_pg', 'm', 'grad_test', 'ls',
+                       'eps_pg', 'm', 'grad_test',
                        'max_iter_outer', 'constraint_tol'}
         unsupported = [opt for opt in options.keys() if opt not in all_options]
         for opt in unsupported:
