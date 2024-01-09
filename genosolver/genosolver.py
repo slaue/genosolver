@@ -397,7 +397,7 @@ class LBFGSB:
             if k >= self.param['max_iter']:
                 f_old = f
                 x_old = x
-                g_old = x
+                g_old = g
                 status = 2
                 message = "Maximum iterations reached"
                 break
