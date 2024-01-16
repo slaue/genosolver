@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Optional
 from queue import PriorityQueue
 from bisect import bisect_left, insort_left
+import numpy as np # for np.exp and np.linspace
 
 @dataclass(slots=True, order=True)
 class Cubic:
@@ -22,10 +23,14 @@ class Cubic:
     d: float
     _min_fx: float
     _min_x: float
+    alpha: float
+    gamma: float
 
     def __init__(self, x0: float, x1: float,
                  fx0: float, gx0: float,
-                 fx1: float, gx1: float):
+                 fx1: float, gx1: float,
+                 alpha: Optional[float] = None,
+                 gamma: float = 1.):
 
         gx0 = gx0 * (x1 - x0)
         gx1 = gx1 * (x1 - x0)
@@ -35,7 +40,9 @@ class Cubic:
         self.d = fx0
         self.a = gx0 + gx1 - 2*(fx1 - fx0)
         self.b = 3*(fx1 - fx0) - gx1 - 2*gx0
-
+        self.alpha = 0. if alpha is None else alpha
+        self.gamma = gamma
+        
         self._min_fx = fx1
         self._min_x = x1
 
@@ -68,9 +75,21 @@ class Cubic:
                     self._min_fx = stf1
                     self._min_x = st1 * (self.x1 - self.x0) + self.x0
 
+        if not alpha is None:
+            t = np.linspace(0., 1., 100)
+            fmin, tmin = min(( (self.nonscale_f(i), -i) for i in t ))
+            self._min_fx = fmin
+            self._min_x = tmin * (self.x0 - self.x1) + self.x0
+            
+    def nonscale_conf_f(self, x: float)-> float:
+        return self.alpha * (np.exp(-.25 * self.gamma) - np.exp(-((x - .5)**2)*self.gamma))
+
+    def conf_f(self, x: float)-> float:
+        xt = (x - slef.x0) / (self.x1 - self.x0)
+        return self.nonscale_conf_f(xt)
 
     def nonscale_f(self, x: float)-> float:
-        return self.a*x**3 + self.b*x**2 + self.c*x + self.d
+        return self.a*x**3 + self.b*x**2 + self.c*x + self.d + self.nonscale_conf_f(x)
 
     def f(self, x: float)-> float:
         xt = (x - self.x0) / (self.x1 - self.x0)
@@ -119,8 +138,8 @@ class Spline:
         indx = bisect_left(self.cubics, cub)
         del self.cubics[indx]
 
-        cubl = Cubic(x0, xm, cub.f(x0), cub.g(x0), fxm, gxm)
-        cubr = Cubic(xm, x1, fxm, gxm, cub.f(x1), cub.g(x1))
+        cubl = Cubic(x0, xm, cub.f(x0), cub.g(x0), fxm, gxm, alpha=1.*(1+abs(cub.f(x0)-fxm))*(xm - x0), gamma=.5)
+        cubr = Cubic(xm, x1, fxm, gxm, cub.f(x1), cub.g(x1), alpha=1.*(1+abs(fxm-cub.f(x1)))*(x1 - xm), gamma=.5)
 
         self.put(cubl)
         self.put(cubr)
@@ -175,7 +194,7 @@ def line_search_wolfe4(fg, xk, d, g=None,
     f, g = phi(stp)
     gd = g.dot(d)
     fg_cnt += 1
-    cub = Cubic(0, stp, finit, gdinit, f, g.dot(d))
+    cub = Cubic(0, stp, finit, gdinit, f, g.dot(d), alpha=(1.+abs(f-finit))*stp, gamma=.5)
     xm, fxm = cub.min
     Q.put((fxm, -xm, cub))
 
@@ -204,8 +223,8 @@ def line_search_wolfe4(fg, xk, d, g=None,
             best_g = g
             best_stp = stp
         
-        cubl = Cubic(x0, stp, cub.f(x0), cub.g(x0), f, g.dot(d))
-        cubr = Cubic(stp, x1, f, g.dot(d), cub.f(x1), cub.g(x1))
+        cubl = Cubic(x0, stp, cub.f(x0), cub.g(x0), f, g.dot(d), alpha=(1.+abs(f-cub.f(x0)))*(stp-x0), gamma=.5)
+        cubr = Cubic(stp, x1, f, g.dot(d), cub.f(x1), cub.g(x1), alpha=(1.+abs(f-cub.f(x1)))*(x1-stp), gamma=.5)
 
         xl, fxl = cubl.min
         xr, fxr = cubr.min
@@ -220,54 +239,75 @@ if __name__ == '__main__':
     import numpy as np
     import matplotlib.pyplot as plt
     from pprint import pprint
-    
-    cub = Cubic(.5, 2, 1, -2, -1, -1)
+    '''
     t = np.linspace(0, 2.5, 100)
-    plt.plot(t, cub(t))
     plt.plot([.5, 2], [1, -1], '.r')
-    plt.plot(*cub.min, 'xr')
+    cub = Cubic(.5, 2, 1, -2, -1, -1)
+    plt.plot(t, cub(t))
+    for m in [0., 1., 2., 5., 10.]:
+        cub = Cubic(.5, 2, 1, -2, -1, -1, alpha=1., gamma=m+1)
+        plt.plot(t, cub(t), '--')
+        plt.plot(*cub.min, 'x')
     plt.show()
 
-    cub = Cubic(.5, 2, 0, 0, 0, 0)
     t = np.linspace(0, 2.5, 100)
-    plt.plot(t, cub(t))
     plt.plot([.5, 2], [0, 0], '.r')
-    plt.plot(*cub.min, 'xr')
+    cub = Cubic(.5, 2, 0, 0, 0, 0)
+    plt.plot(t, cub(t))
+    for m in [0., 1., 2., 5., 10.]:
+        cub = Cubic(.5, 2, 0, 0, 0, 0, alpha=1., gamma=m+1)
+        plt.plot(t, cub(t), '--')
+        plt.plot(*cub.min, 'x')
     plt.show()
 
-    cub = Cubic(.5, 2, 0, -2, 1, -3)
     t = np.linspace(0, 2.5, 100)
-    plt.plot(t, cub(t))
     plt.plot([.5, 2], [0, 1], '.r')
-    plt.plot(*cub.min, 'xr')
+    cub = Cubic(.5, 2, 0, -2, 1, -3)
+    plt.plot(t, cub(t))
+    for m in [0., 1., 2., 5., 10.]:
+        cub = Cubic(.5, 2, 0, -2, 1, -3, alpha=1., gamma=m+1)
+        plt.plot(t, cub(t), '--')
+        plt.plot(*cub.min, 'x')
     plt.show()
 
+    t = np.linspace(-.5, 1.5, 100)
+    plt.plot([0, 1], [1, 1], '.r')    
     cub = Cubic(0, 1, 1, -2, 1, 2)
-    t = np.linspace(-.5, 1.5, 100)
     plt.plot(t, cub(t))
-    plt.plot([0, 1], [1, 1], '.r')
-    plt.plot(cub._min_x, cub._min_fx, 'xr')
+    for m in [0., 1., 2., 5., 10.]:    
+        cub = Cubic(0, 1, 1, -2, 1, 2, alpha=1., gamma=m+1)
+        plt.plot(t, cub(t), '--')
+        plt.plot(*cub.min, 'x')
     plt.show()
 
+    t = np.linspace(-.5, 1.5, 100)
+    plt.plot([0, 1], [0, 0], '.r')    
     cub = Cubic(0, 1, 0, -1, 0, 2)
-    t = np.linspace(-.5, 1.5, 100)
     plt.plot(t, cub(t))
-    plt.plot([0, 1], [0, 0], '.r')
-    plt.plot(cub._min_x, cub._min_fx, 'xr')
+    for m in [0., 1., 2., 5., 10.]:    
+        cub = Cubic(0, 1, 0, -1, 0, 2, alpha=m)
+        plt.plot(t, cub(t), '--')
+        plt.plot(*cub.min, 'x')
     plt.show()
 
-    cub = Cubic(1, 2, 0, -1, 0, 2)
     t = np.linspace(.5, 2.5, 100)
+    plt.plot([1, 2], [0, 0], '.r')    
+    cub = Cubic(1, 2, 0, -1, 0, 2)
     plt.plot(t, cub(t))
-    plt.plot([1, 2], [0, 0], '.r')
-    plt.plot(cub._min_x, cub._min_fx, 'xr')
+    for m in [0., 1., 2., 5., 10.]:    
+        cub = Cubic(1, 2, 0, -1, 0, 2, alpha=m)
+        plt.plot(t, cub(t), '--')
+        plt.plot(*cub.min, 'x')
     plt.show()
 
-    cub = Cubic(2, 4, 0, -1, 0, 2)
     t = np.linspace(1, 5, 100)
-    plt.plot(t, cub(t))
     plt.plot([2, 4], [0, 0], '.r')
-    plt.plot(cub._min_x, cub._min_fx, 'xr')
+    cub = Cubic(2, 4, 0, -1, 0, 2)
+    plt.plot(t, cub(t))
+    for m in [0., 1., 2., 5., 10.]:    
+        cub = Cubic(2, 4, 0, -1, 0, 2, alpha=m)
+        plt.plot(t, cub(t), '--')
+        plt.plot(*cub.min, 'x')
     plt.show()
 
     
@@ -336,18 +376,18 @@ if __name__ == '__main__':
         plt.show()
         print(spl.min)
         spl.split_min()
-    
+    '''
     def fg(x):
-        if x < 1: return (1-x, -1)
+        if x < 1: return ((1-x)*100, -1*100)
         def sigmoid(x):
           return 1 / (1 + np.exp(-x))
-        return ((1-x)*sigmoid(1-x), -sigmoid(1-x) + -(1-x)*sigmoid(1-x)*(1-sigmoid(1-x)))
+        return ((1-x)*sigmoid(1-x)*100, -sigmoid(1-x)*100 + -(1-x)*sigmoid(1-x)*(1-sigmoid(1-x))*100)
 
     
     spl = Spline(fg)
     
     t = np.linspace(-.5, 4.5, 100)
-    spl.put(Cubic(t[0]+.5, t[-1]-.5, *fg(t[0]+.5), *fg(t[-1]-.5)))
+    spl.put(Cubic(t[0]+.5, t[-1]-.5, *fg(t[0]+.5), *fg(t[-1]-.5), alpha=1., gamma=1.))
     
     from scipy.optimize import line_search
 
@@ -389,7 +429,7 @@ if __name__ == '__main__':
     t = np.linspace(-.5, 20.5, 100)
     spl.put(Cubic(0, t[-1]-.5, *fg(0), *fg(t[-1]-.5)))
 
-    for _ in range(5):
+    for _ in range(10):
         plt.plot(t, fg(t)[0], '-k')
         plt.plot(t, [ spl(x) for x in t ], '--r')
         plt.plot([ x.x0 for x in spl.cubics ], [ x(x.x0) for x in spl.cubics ], '.b')
@@ -398,4 +438,3 @@ if __name__ == '__main__':
         plt.show()
         print(spl.min)
         spl.split_min()
-
