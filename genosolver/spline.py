@@ -191,9 +191,20 @@ def line_search_wolfe4(fg, xk, d, g=None,
     
     Q = PriorityQueue()
 
-    f, g = phi(stp)
+    for _i in range(20):
+        f, g = phi(stp)
+        fg_cnt += 1
+        if np.isneginf(f):
+            break
+        if np.isfinite(f) and np.isfinite(g).all():
+            break
+
+        if verbose >= 99:
+                print('f or g has inf or nan')
+
+        stp = .5 * stp
+    
     gd = g.dot(d)
-    fg_cnt += 1
     cub = Cubic(0, stp, finit, gdinit, f, g.dot(d), alpha=(1.+abs(f-finit))*stp, gamma=.5)
     xm, fxm = cub.min
     Q.put((fxm, -xm, cub))
@@ -202,14 +213,20 @@ def line_search_wolfe4(fg, xk, d, g=None,
     best_g = g
     best_stp = stp
     
-    for _ in range(20):
+    for _i in range(20):
         
         ftest = finit + stp*gtest
         if (f < ftest + eps*(abs(ftest) + 1) and abs(gd) <= c2 * (-gdinit)):
             best_f = f
             best_g = g
             best_stp = stp
+            break
 
+        if Q.empty():
+            if verbose >= 99:
+                print('No reasnoble stesize found')
+            break
+        
         cub = Q.get()[-1]
         x0 = cub.x0
         x1 = cub.x1
@@ -218,18 +235,34 @@ def line_search_wolfe4(fg, xk, d, g=None,
             break
 
         f, g = phi(stp)
+        fg_cnt += 1
+
+        for _j in range(20):
+            if np.isneginf(f):
+                break
+            if np.isfinite(f) and np.isfinite(g).all():
+                break
+
+            if verbose >= 99:
+                print('f or g has inf or nan')
+
+            stp = .5 * stp
+            x1 = stp
+        
         if (f, g.dot(d), -stp) < (best_f, best_g.dot(d), -best_stp):
             best_f = f
             best_g = g
             best_stp = stp
         
         cubl = Cubic(x0, stp, cub.f(x0), cub.g(x0), f, g.dot(d), alpha=(1.+abs(f-cub.f(x0)))*(stp-x0), gamma=.5)
-        cubr = Cubic(stp, x1, f, g.dot(d), cub.f(x1), cub.g(x1), alpha=(1.+abs(f-cub.f(x1)))*(x1-stp), gamma=.5)
-
         xl, fxl = cubl.min
-        xr, fxr = cubr.min
         Q.put((fxl, -xl, cubl))
-        Q.put((fxr, -xr, cubr))
+
+        if stp < x1:
+            cubr = Cubic(stp, x1, f, g.dot(d), cub.f(x1), cub.g(x1), alpha=(1.+abs(f-cub.f(x1)))*(x1-stp), gamma=.5)
+            xr, fxr = cubr.min
+            Q.put((fxr, -xr, cubr))
+        
         
     return best_stp, fg_cnt, best_f, best_g
 

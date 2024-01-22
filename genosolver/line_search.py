@@ -190,7 +190,7 @@ def dcsrch(f: float,
   fg_cnt = 0
 
 
-  for _ in range(20):
+  for _ in range(100):
     f, g, grad = fg(stp)
     fg_cnt += 1
     stp_old = stp
@@ -310,7 +310,7 @@ def dcsrch(f: float,
 def line_search_wolfe3(fg, xk, d, g=None,
                        old_fval=None, old_old_fval=None,
                        args=(), c1=1e-4, c2=0.9, amax=50., amin=1e-14,
-                       xtol=0.1, verbose=0, np=numpy):
+                       xtol=1e-14, verbose=0, np=numpy):
 
     stp = np.clip(1., amin, amax)
     
