@@ -262,7 +262,11 @@ def line_search_wolfe4(fg, xk, d, g=None,
             cubr = Cubic(stp, x1, f, g.dot(d), cub.f(x1), cub.g(x1), alpha=(1.+abs(f-cub.f(x1)))*(x1-stp), gamma=.5)
             xr, fxr = cubr.min
             Q.put((fxr, -xr, cubr))
-        
+
+    #if best_stp > amin:
+    #    best_stp = amin
+    #    fg_cnt += 1
+    #    best_f, best_g = phi(amin)
         
     return best_stp, fg_cnt, best_f, best_g
 
