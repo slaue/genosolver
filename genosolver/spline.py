@@ -284,6 +284,101 @@ def line_search_wolfe4(fg, xk, d, g=None,
         
     return best_stp, fg_cnt, best_f, best_g
 
+def line_search_wolfe4_debug(fg, xk, d, g=None,
+                             old_fval=None, old_old_fval=None,
+                             args=(), c1=1e-4, c2=0.9, amax=50., amin=1e-14,
+                             xtol=1e-14, verbose=100, np=numpy, plot_path=None):
+    
+    stp = np.clip(1., amin, amax)
+
+    steps_array = []
+    save_steps = True
+    def phi(s):
+        if save_steps:
+            steps_array.append(s)
+        fx, gx = fg(xk + s*d)
+        return fx, gx
+
+    fg_cnt = 0
+    if old_fval is None or g is None:
+        old_fval, g = phi(0)
+        fg_cnt += 1
+    
+    eps = 0.0
+    finit = old_fval
+    gdinit = g.dot(d)
+    gtest = c1*gdinit
+    
+    def phid(s):
+        f, g = phi(s)
+        return f, g.dot(d)
+    S = Spline(phid)
+
+    f, g = phi(stp)
+    gd = g.dot(d)
+    fg_cnt += 1
+    cub = Cubic(0, stp, finit, gdinit, f, g.dot(d), alpha=(1.+abs(f-finit))*stp, gamma=.5)
+    S.put(cub)
+
+    best_f = f
+    best_g = g
+    best_stp = stp
+    
+    for _ in range(20):
+        ftest = finit + stp*gtest
+        if (f < ftest + eps*(abs(ftest) + 1) and abs(gd) <= c2 * (-gdinit)):
+            best_f = f
+            best_g = g
+            best_stp = stp
+            break
+
+        cub = S.min
+        x0 = cub.x0
+        x1 = cub.x1
+        stp = cub.min[0]
+        if not (x0 < stp < x1) or (x1 - x0) < xtol * x1:
+            if verbose > 9:
+                print('XTOL satisfied')
+            break
+
+        S.split_min()
+        fg_cnt += 1
+        #f = S.f(stp)
+        #g = S.g(stp)
+        f, g = phi(stp)
+
+        if (f, g.dot(d), -stp) < (best_f, best_g.dot(d), -best_stp):
+            best_f = f
+            best_g = g
+            best_stp = stp
+        
+    if stp:
+        steps_array.append(stp)
+    if stp != 1.:
+        import matplotlib.pyplot as plt
+        import os, datetime
+        save_steps = False
+        fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(14,6))
+        step_space = np.linspace(0., max(steps_array), 50)
+        axs[0].plot(step_space, [ phi(s)[0] for s in step_space ])
+        axs[0].plot(steps_array, [ phi(s)[0] for s in steps_array], '.')
+        axs[0].plot(step_space, [ S.f(s) for s in step_space ], '--g')
+        axs[1].semilogy(list(range(len(steps_array))), steps_array)
+        if not plot_path is None: 
+          os.makedirs(plot_path, exist_ok=True)
+          plot_name = datetime.datetime.now().strftime('%Y-%m-%d-%H_%M_%S')
+          plt.save(os.path.join(plot_path, f'{plot_name}.pdf'))
+        else:
+            plt.show()
+        plt.close()
+
+    #if best_stp > amin:
+    #    best_stp = amin
+    #    fg_cnt += 1
+    #    best_f, best_g = phi(amin)
+
+    return best_stp, fg_cnt, best_f, best_g
+
 
     
 if __name__ == '__main__':
