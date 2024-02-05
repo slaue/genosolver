@@ -181,7 +181,8 @@ class LBFGSB:
                                                 g=g_old, old_fval=f_old, 
                                                 old_old_fval=None, 
                                                 c1=1e-4, c2=.9, 
-                                                amax=step_max, np=self.np)
+                                                amax=step_max, np=self.np,
+                                                verbose=self.param['verbose'])
         
         if step is None:
             x = x_old
