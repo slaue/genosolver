@@ -89,7 +89,7 @@ class Cubic:
         return self.nonscale_conf_f(xt)
 
     def nonscale_f(self, x: float)-> float:
-        return self.a*x**3 + self.b*x**2 + self.c*x + self.d + self.nonscale_conf_f(x)
+        return ((self.a*x + self.b)*x + self.c)*x + self.d + self.nonscale_conf_f(x)
 
     def f(self, x: float)-> float:
         xt = (x - self.x0) / (self.x1 - self.x0)
@@ -103,7 +103,7 @@ class Cubic:
 
     def g(self, x: float)-> float:
         xt = (x - self.x0) / (self.x1 - self.x0)
-        return (3*self.a*xt**2 + 2*self.b*xt + self.c) / (self.x1 - self.x0)
+        return ((3*self.a*xt + 2*self.b)*xt + self.c) / (self.x1 - self.x0)
 
     @property
     def min(self)-> tuple[float, float]:
@@ -174,9 +174,11 @@ def line_search_wolfe4(fg, xk, d, g=None,
                        xtol=1e-14, verbose=0, np=numpy):
     
     stp = np.clip(1., amin, amax)
-    
+
+    delta = 0.
+    alpha = 1.
     def phi(s):
-        fx, gx = fg(xk + s*d)
+        fx, gx = fg(xk + (delta + alpha*s)*d)
         return fx, gx
 
     fg_cnt = 0
@@ -188,24 +190,36 @@ def line_search_wolfe4(fg, xk, d, g=None,
     finit = old_fval
     gdinit = g.dot(d)
     gtest = c1*gdinit
+    g_old = g
     
     Q = PriorityQueue()
 
-    for _i in range(20):
-        f, g = phi(stp)
-        fg_cnt += 1
-        if np.isneginf(f):
-            break
-        if np.isfinite(f) and np.isfinite(g).all():
-            break
+    for _j in range(20):
+        for _i in range(20):
+            f, g = phi(stp)
+            fg_cnt += 1
+            if np.isneginf(f):
+                break
+            if np.isfinite(f) and np.isfinite(g).all():
+                break
 
-        if verbose >= 99:
+            if verbose >= 99:
                 print('f or g has inf or nan')
 
-        stp = .5 * stp
+            stp = .5 * stp
+            alpha = .5 * alpha
+        else:
+            print('No step size found')
+            return None, fg_cnt, finit, g_old
+        if g.dot(d) >= c2*gdinit:
+            break
+        delta = delta + alpha
+        alpha = 4. * alpha
+    else:
+        return delta + alpha*stp, fg_cnt, f, g
     
     gd = g.dot(d)
-    cub = Cubic(0, stp, finit, gdinit, f, gd, alpha=(1.+abs(f-finit))*stp, gamma=.5)
+    cub = Cubic(0, stp, finit, gdinit, f, gd)#, alpha=(1.+abs(f-finit))*stp, gamma=.5)
     xm, fxm = cub.min
     Q.put((fxm, -xm, cub))
 
@@ -213,18 +227,21 @@ def line_search_wolfe4(fg, xk, d, g=None,
     best_g = g
     best_stp = stp
     
-    for _i in range(100):
+    for _i in range(20):
         
         ftest = finit + stp*gtest
-        if (f < ftest + eps*(abs(ftest) + 1) and abs(gd) <= c2 * (-gdinit)):
+        if f < ftest and abs(gd) <= c2 * (-gdinit):
+            if verbose >= 99:
+                print('STRONG WOLFE SATISFIED')
             best_f = f
             best_g = g
             best_stp = stp
+            
             break
 
         if Q.empty():
             if verbose >= 99:
-                print('No reasnoble stepsize found')
+                print('No reasonable stepsize found')
             break
         
         cub = Q.get()[-1]
@@ -238,9 +255,9 @@ def line_search_wolfe4(fg, xk, d, g=None,
 
         stp = cub.min[0]
         if not (x0 < stp < x1):
-            stp = np.clip(stp, x0 + (x1 - x0) * 1e-3, x1 - (x1 - x0) * 1e-3)
+            stp = np.clip(stp, x0 + (x1 - x0) * 1e-6, x1 - (x1 - x0) * 1e-6)
             if verbose >= 99:
-                print('step on boundary')
+                print('step on boundary, clipped')
         f, g = phi(stp)
         fg_cnt += 1
 
@@ -260,29 +277,29 @@ def line_search_wolfe4(fg, xk, d, g=None,
         else:
             continue
         
-        if (f, g.dot(d), -stp) < (best_f, best_g.dot(d), -best_stp):
+        if (f, abs(g.dot(d)), -stp) < (best_f, abs(best_g.dot(d)), -best_stp):
             best_f = f
             best_g = g
             best_stp = stp
         
-        cubl = Cubic(x0, stp, cub.f(x0), cub.g(x0), f, g.dot(d), alpha=(1.+abs(f-cub.f(x0)))*(stp-x0), gamma=.5)
+        cubl = Cubic(x0, stp, cub.f(x0), cub.g(x0), f, g.dot(d))#, alpha=(1.+abs(f-cub.f(x0)))*(stp-x0), gamma=.5)
         xl, fxl = cubl.min
         Q.put((fxl, -xl, cubl))
 
         if stp < x1:
-            cubr = Cubic(stp, x1, f, g.dot(d), cub.f(x1), cub.g(x1), alpha=(1.+abs(f-cub.f(x1)))*(x1-stp), gamma=.5)
+            cubr = Cubic(stp, x1, f, g.dot(d), cub.f(x1), cub.g(x1))#, alpha=(1.+abs(f-cub.f(x1)))*(x1-stp), gamma=.5)
             xr, fxr = cubr.min
             Q.put((fxr, -xr, cubr))
     else:
         if verbose >= 99:
             print('MAX ITER line search')
-            
+
     #if best_stp > amin:
     #    best_stp = amin
     #    fg_cnt += 1
     #    best_f, best_g = phi(amin)
-        
-    return best_stp, fg_cnt, best_f, best_g
+    
+    return delta + alpha*best_stp, fg_cnt, best_f, best_g
 
 def line_search_wolfe4_debug(fg, xk, d, g=None,
                              old_fval=None, old_old_fval=None,
