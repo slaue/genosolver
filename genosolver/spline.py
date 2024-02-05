@@ -191,6 +191,8 @@ def line_search_wolfe4(fg, xk, d, g=None,
     gdinit = g.dot(d)
     gtest = c1*gdinit
     g_old = g
+    f_low = finit
+    gd_low = gdinit
     
     Q = PriorityQueue()
 
@@ -213,13 +215,15 @@ def line_search_wolfe4(fg, xk, d, g=None,
             return None, fg_cnt, finit, g_old
         if g.dot(d) >= c2*gdinit:
             break
+        gd_low = g.dot(d)
+        f_low = f
         delta = delta + alpha
         alpha = 4. * alpha
     else:
-        return delta + alpha*stp, fg_cnt, f, g
+        return (delta-alpha/4.) + alpha/4.*stp, fg_cnt, f, g
     
     gd = g.dot(d)
-    cub = Cubic(0, stp, finit, gdinit, f, gd)#, alpha=(1.+abs(f-finit))*stp, gamma=.5)
+    cub = Cubic(0, stp, f_low, gd_low, f, gd)#, alpha=(1.+abs(f-finit))*stp, gamma=.5)
     xm, fxm = cub.min
     Q.put((fxm, -xm, cub))
 
@@ -229,7 +233,7 @@ def line_search_wolfe4(fg, xk, d, g=None,
     
     for _i in range(20):
         
-        ftest = finit + stp*gtest
+        ftest = finit + (delta + alpha*stp)*gtest
         if f < ftest and abs(gd) <= c2 * (-gdinit):
             if verbose >= 99:
                 print('STRONG WOLFE SATISFIED')
