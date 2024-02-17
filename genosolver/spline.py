@@ -12,7 +12,7 @@ class Cubic:
     """
     Fitting a cubic polynomial.
     Transfering [x0,x1] to [0,1], solving for coefficients, and then rescaleing back to [x0,x1].
-    When sorting, assuming all Cubics are of the same function.
+    Sorting by x0.
     """
 
     x0: float
@@ -85,7 +85,7 @@ class Cubic:
         return self.alpha * (np.exp(-.25 * self.gamma) - np.exp(-((x - .5)**2)*self.gamma))
 
     def conf_f(self, x: float)-> float:
-        xt = (x - slef.x0) / (self.x1 - self.x0)
+        xt = (x - self.x0) / (self.x1 - self.x0)
         return self.nonscale_conf_f(xt)
 
     def nonscale_f(self, x: float)-> float:
@@ -113,6 +113,7 @@ class Cubic:
 class Spline:
     """
     Cubic spline interpolation of function.
+    WARNING: Currently not up-to-date.
     """
 
     fg: Optional[Callable[[float], tuple[float, float]]] = None
@@ -310,7 +311,7 @@ def line_search_wolfe4_debug(fg, xk, d, g=None,
                              old_fval=None, old_old_fval=None,
                              args=(), c1=1e-4, c2=0.9, amax=50., amin=1e-14,
                              xtol=1e-14, verbose=100, np=numpy, plot_path=None):
-    
+
     stp = np.clip(1., amin, amax)
 
     steps_array = []
@@ -325,71 +326,144 @@ def line_search_wolfe4_debug(fg, xk, d, g=None,
     if old_fval is None or g is None:
         old_fval, g = phi(0)
         fg_cnt += 1
-    
+        
+    delta = 0.
+    alpha = 1.
     eps = 0.0
     finit = old_fval
     gdinit = g.dot(d)
     gtest = c1*gdinit
+    g_old = g
+    f_low = finit
+    gd_low = gdinit
+
+    segments = [] # list of lists
+    Q = PriorityQueue()
+
+    for _j in range(20):
+        for _i in range(20):
+            f, g = phi(delta + alpha*stp)
+            fg_cnt += 1
+            if np.isneginf(f):
+                break
+            if np.isfinite(f) and np.isfinite(g).all():
+                break
+
+            if verbose >= 99:
+                print('f or g has inf or nan')
+
+            stp = .5 * stp
+            alpha = .5 * alpha
+        else:
+            print('No step size found')
+            return None, fg_cnt, finit, g_old
+        if f >= f_low or g.dot(d) >= c2*gdinit:
+            break
+        gd_low = g.dot(d)
+        f_low = f
+        delta = delta + alpha
+        alpha = 4. * alpha
+    else:
+        return (delta-alpha/4.) + alpha/4.*stp, fg_cnt, f, g
     
-    def phid(s):
-        f, g = phi(s)
-        return f, g.dot(d)
-    S = Spline(phid)
-
-    f, g = phi(stp)
     gd = g.dot(d)
-    fg_cnt += 1
-    cub = Cubic(0, stp, finit, gdinit, f, g.dot(d), alpha=(1.+abs(f-finit))*stp, gamma=.5)
-    S.put(cub)
+    cub = Cubic(delta, (delta + alpha*stp), f_low, gd_low, f, gd, alpha=(1.+abs(f-finit))*stp, gamma=.5)
+    xm, fxm = cub.min
+    Q.put((fxm, -xm, cub))
+    segments.append([ x[2] for x in Q.queue ])
 
+    stp = delta + alpha*stp
     best_f = f
     best_g = g
     best_stp = stp
     
-    for _ in range(20):
+    for _i in range(100):
+        
         ftest = finit + stp*gtest
-        if (f < ftest + eps*(abs(ftest) + 1) and abs(gd) <= c2 * (-gdinit)):
+        if f < ftest and abs(gd) <= c2 * (-gdinit):
+            if verbose >= 99:
+                print('STRONG WOLFE SATISFIED')
             best_f = f
             best_g = g
             best_stp = stp
+            
             break
 
-        cub = S.min
+        if Q.empty():
+            if verbose >= 99:
+                print('No reasonable stepsize found')
+            break
+        
+        cub = Q.get()[-1]
         x0 = cub.x0
         x1 = cub.x1
+        if (x1 - x0) < xtol * x1:
+            if verbose >= 99:
+                print('XTOL line search')
+                print('Skipped', x0, cub.min[0], x1)
+            continue
+
         stp = cub.min[0]
-        if not (x0 < stp < x1) or (x1 - x0) < xtol * x1:
-            if verbose > 9:
-                print('XTOL satisfied')
-            break
-
-        S.split_min()
-        fg_cnt += 1
-        #f = S.f(stp)
-        #g = S.g(stp)
+        if not (x0 + (x1 - x0) * .1 <= stp <= x1 - (x1 - x0) * .1):
+            stp = np.clip(stp, x0 + (x1 - x0) * .1, x1 - (x1 - x0) * .1)
+            if verbose >= 99:
+                print('step on boundary, clipped')
         f, g = phi(stp)
+        fg_cnt += 1
 
-        if (f, g.dot(d), -stp) < (best_f, best_g.dot(d), -best_stp):
+        for _j in range(20):
+            if np.isneginf(f):
+                break
+            if np.isfinite(f) and np.isfinite(g).all():
+                break
+
+            if verbose >= 99:
+                print('f or g has inf or nan')
+
+            stp = .5 * stp
+            x1 = stp
+            f, g = phi(stp)
+            fg_cnt += 1
+        else:
+            continue
+        
+        if (f, abs(g.dot(d)), -stp) < (best_f, abs(best_g.dot(d)), -best_stp):
             best_f = f
             best_g = g
             best_stp = stp
         
-    if stp:
-        steps_array.append(stp)
-    if stp != 1.:
+        cubl = Cubic(x0, stp, cub.f(x0), cub.g(x0), f, g.dot(d), alpha=(1.+abs(f-cub.f(x0)))*(stp-x0), gamma=.5)
+        xl, fxl = cubl.min
+        Q.put((fxl, -xl, cubl))
+
+        if stp < x1:
+            cubr = Cubic(stp, x1, f, g.dot(d), cub.f(x1), cub.g(x1), alpha=(1.+abs(f-cub.f(x1)))*(x1-stp), gamma=.5)
+            xr, fxr = cubr.min
+            Q.put((fxr, -xr, cubr))
+        segments.append([ x[2] for x in Q.queue ])
+    else:
+        if verbose >= 99:
+            print('MAX ITER line search')
+
+
+    for seg in segments:
         import matplotlib.pyplot as plt
         import os, datetime
+        from bisect import bisect_left
+        
+        seg = sorted(seg)
         save_steps = False
         fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(14,6))
         step_space = np.linspace(0., max(steps_array), 50)
+
         axs[0].plot(step_space, [ phi(s)[0] for s in step_space ])
-        axs[0].plot(steps_array, [ phi(s)[0] for s in steps_array], '.')
-        axs[0].plot(step_space, [ S.f(s) for s in step_space ], '--g')
+        axs[0].plot(step_space, [ seg[bisect_left(seg, s, key=lambda k: k.x1)].f(s) for s in step_space ], '--g')
+        axs[0].plot(step_space, [ seg[bisect_left(seg, s, key=lambda k: k.x1)].f(s) - seg[bisect_left(seg, s, key=lambda k: k.x1)].conf_f(s) for s in step_space ], '--r')
         axs[1].semilogy(list(range(len(steps_array))), steps_array)
         if not plot_path is None: 
-          os.makedirs(plot_path, exist_ok=True)
-          plot_name = datetime.datetime.now().strftime('%Y-%m-%d-%H_%M_%S')
-          plt.save(os.path.join(plot_path, f'{plot_name}.pdf'))
+            os.makedirs(plot_path, exist_ok=True)
+            plot_name = datetime.datetime.now().strftime('%Y-%m-%d-%H_%M_%S')
+            plt.save(os.path.join(plot_path, f'{plot_name}.pdf'))
         else:
             plt.show()
         plt.close()
@@ -398,9 +472,8 @@ def line_search_wolfe4_debug(fg, xk, d, g=None,
     #    best_stp = amin
     #    fg_cnt += 1
     #    best_f, best_g = phi(amin)
-
+    
     return best_stp, fg_cnt, best_f, best_g
-
 
     
 if __name__ == '__main__':
