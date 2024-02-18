@@ -384,7 +384,7 @@ def line_search_wolfe4_debug(fg, xk, d, g=None,
     for _i in range(100):
         
         ftest = finit + stp*gtest
-        if f < ftest and abs(gd) <= c2 * (-gdinit):
+        if f < ftest and abs(g.dot(d)) <= c2 * (-gdinit):
             if verbose >= 99:
                 print('STRONG WOLFE SATISFIED')
             best_f = f
