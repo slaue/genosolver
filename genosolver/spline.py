@@ -80,13 +80,13 @@ class Cubic:
             fxs = self.nonscale_f(t)
             imin = np.argmin(self.nonscale_f(t))
             self._min_fx = fxs[imin]
-            self._min_x = t[imin] * (self.x0 - self.x1) + self.x0
+            self._min_x = t[imin] * (self.x1 - self.x0) + self.x0
             #fmin, tmin = min(( (self.nonscale_f(i), -i) for i in t ))
             #self._min_fx = fmin
             #self._min_x = tmin * (self.x0 - self.x1) + self.x0
             
     def nonscale_conf_f(self, x: float)-> float:
-        return self.alpha*((np.exp(-.25*self.gamma) - np.exp(-((x - .5)**2)*self.gamma)) / (1. - np.exp(-.25 * self.gamma)))
+        return self.alpha*((np.exp(-.25*self.gamma) - np.exp(-((x - .5)**2)*self.gamma)))
 
     def conf_f(self, x: float)-> float:
         xt = (x - self.x0) / (self.x1 - self.x0)
@@ -381,7 +381,7 @@ def line_search_wolfe4_debug(fg, xk, d, g=None,
     best_g = g
     best_stp = stp
     
-    for _i in range(100):
+    for _i in range(20):
         
         ftest = finit + stp*gtest
         if f < ftest and abs(g.dot(d)) <= c2 * (-gdinit):
