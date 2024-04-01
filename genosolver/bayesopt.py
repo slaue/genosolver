@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Callable, Self, Optional
+from typing import Callable, Optional
 from functools import wraps
 import matplotlib.pyplot as plt
 from autograd import grad, elementwise_grad, jacobian, value_and_grad
@@ -14,19 +14,19 @@ class Optimizable(ABC):
     theta: np.ndarray
 
     @property
-    def parameters(self: Self)-> np.ndarray:
+    def parameters(self)-> np.ndarray:
         return self.theta
 
     @parameters.setter
-    def parameters(self: Self, x: np.ndarray):
+    def parameters(self, x: np.ndarray):
         self.theta = x
 
     @abstractmethod
-    def __call__(self: Self, x: np.ndarray)-> np.ndarray:
+    def __call__(self, x: np.ndarray)-> np.ndarray:
         ...
 
     @abstractmethod
-    def grad(self: Self, x: np.ndarray)-> np.ndarray:
+    def grad(self, x: np.ndarray)-> np.ndarray:
         ...
 
 def mu_grad(mu: Callable[[np.ndarray],np.ndarray])-> Callable[[np.ndarray],np.ndarray]:
@@ -54,12 +54,12 @@ def ker_grad(ker: Callable[[np.ndarray],np.ndarray])-> Callable[[np.ndarray],np.
 
 class Kernel(Optimizable):
 
-    def grad(self: Self, x: np.ndarray)-> np.ndarray:
+    def grad(self, x: np.ndarray)-> np.ndarray:
         return ker_grad(self)(x)
 
 class Expectation(Optimizable):
 
-    def grad(self: Self, x: np.ndarray)-> np.ndarray:
+    def grad(self, x: np.ndarray)-> np.ndarray:
         return mu_grad(self)(x)
 
 class Matern52(Kernel):
@@ -68,14 +68,14 @@ class Matern52(Kernel):
     WARNING: autograd cannot calculate d^2/(dx)^2 (solution is a hack)
     '''
 
-    def __init__(self: Self, sig: float=1.5, theta: float=.1):
+    def __init__(self, sig: float=1.5, theta: float=.1):
         self.theta = np.array([ sig, theta ])
 
-    def __call__(self: Self, d: np.ndarray)-> np.ndarray:
+    def __call__(self, d: np.ndarray)-> np.ndarray:
         xdr = self.theta[1]**2*np.sqrt(5)*abs(d)
         return self.theta[0]**2*(1 + xdr + xdr**2/3)*np.exp(-xdr)
 
-    def grad(self: Self, x: np.ndarray)-> np.ndarray:
+    def grad(self, x: np.ndarray)-> np.ndarray:
         y = super().grad(x)
         c = self.theta[0]**2*self.theta[1]**4*5/3
         mask = np.block([ [np.zeros_like(x), np.zeros_like(x)], [np.zeros_like(x), x==0] ])
@@ -87,10 +87,10 @@ class RBF(Kernel):
     Gaussian Kernel
     '''
     
-    def __init__(self: Self, alpha: float=10., theta: float=.1):
+    def __init__(self, alpha: float=10., theta: float=.1):
         self.theta = np.array([ alpha, theta ])
 
-    def __call__(self: Self, d: np.ndarray)-> np.ndarray:
+    def __call__(self, d: np.ndarray)-> np.ndarray:
         return self.theta[0]**2 * np.exp(-self.theta[1]**2*(d)**2)
 
 class RQK(Kernel):
@@ -98,10 +98,10 @@ class RQK(Kernel):
     Rational Quadratic Kernel
     '''
 
-    def __init__(self: Self, alpha: float=10., theta: float=1., p: float=1.):
+    def __init__(self, alpha: float=10., theta: float=1., p: float=1.):
         self.theta = np.array([ alpha, theta, p ])
 
-    def __call__(self: Self, d: np.ndarray)-> np.ndarray:
+    def __call__(self, d: np.ndarray)-> np.ndarray:
         return self.theta[0]**2*(1+(self.theta[1]*d*self.theta[2])**2)**(-self.theta[2]**2)
 
 def polyval(p, x):
@@ -115,10 +115,10 @@ class PolyRegressor(Expectation):
     Polynomial regression
     '''
 
-    def __init__(self: Self, p: np.ndarray):
+    def __init__(self, p: np.ndarray):
         self.theta = p
 
-    def __call__(self: Self, x: np.ndarray)-> np.ndarray:
+    def __call__(self, x: np.ndarray)-> np.ndarray:
         return polyval(self.theta, x)
 
 class GaussianProcess:
@@ -132,7 +132,7 @@ class GaussianProcess:
     g: Optional[np.ndarray]
     _L: np.ndarray
     
-    def __init__(self: Self,
+    def __init__(self,
                  mu: Callable[[np.ndarray], np.ndarray],
                  ker: Callable[[np.ndarray], np.ndarray],
                  reg: float=None
@@ -145,7 +145,7 @@ class GaussianProcess:
         self.g = None
         self._L = np.array([])
 
-    def expect(self: Self, x: np.ndarray)-> np.ndarray:
+    def expect(self, x: np.ndarray)-> np.ndarray:
         x = np.atleast_1d(x)
         cov = self.ker(self.x[:,None]-x) if self.g is None else self.ker.grad(self.x[:,None]-x)
         diff = (self.y - self.mu(self.x)) if self.g is None else (np.concatenate((self.y, self.g)) - self.mu.grad(self.x))
@@ -154,14 +154,14 @@ class GaussianProcess:
         mux = self.mu(x) if self.g is None else self.mu.grad(self.x)
         return mux + wt.T @ v
 
-    def covary(self: Self, x: np.ndarray)-> np.ndarray:
+    def covary(self, x: np.ndarray)-> np.ndarray:
         x = np.atleast_1d(x)
         cov = self.ker(self.x[:,None]-x) if self.g is None else self.ker.grad(self.x[:,None]-x)
         V = lin.solve_triangular(self._L, cov, lower=True)
         kro = self.ker(x[:,None]-x) if self.g is None else self.ker.grad(x[:,None]-x)
         return kro - V.T @ V
 
-    def predict(self: Self, x: np.ndarray)-> tuple[np.ndarray, np.ndarray]:
+    def predict(self, x: np.ndarray)-> tuple[np.ndarray, np.ndarray]:
         x = np.atleast_1d(x)
         cov = self.ker(self.x[:,None]-x) if self.g is None else self.ker.grad(self.x[:,None]-x)
         diff = (self.y - self.mu(self.x)) if self.g is None else (np.concatenate((self.y, self.g)) - self.mu.grad(self.x))
@@ -171,7 +171,7 @@ class GaussianProcess:
         kro = self.ker(x[:,None]-x) if self.g is None else self.ker.grad(x[:,None]-x)
         return mux + V.T @ w, kro - V.T @ V
 
-    def update(self: Self, *,
+    def update(self, *,
                mu: Optional[Callable[[np.ndarray], np.ndarray]]=None,
                ker: Optional[Callable[[np.ndarray, np.ndarray], np.ndarray]]=None,
                reg: Optional[float]=None):
@@ -185,7 +185,7 @@ class GaussianProcess:
         else:
             self._L = np.linalg.cholesky(kerg(self.x[:,None]-self.x))
 
-    def add(self: Self, x: np.ndarray, y: np.ndarray, g: Optional[np.ndarray]=None):
+    def add(self, x: np.ndarray, y: np.ndarray, g: Optional[np.ndarray]=None):
         x = np.atleast_1d(x)
         y = np.atleast_1d(y)
         self.x = np.block([ self.x, x ])
@@ -195,7 +195,7 @@ class GaussianProcess:
             self.g = g if self.g is None else np.concatenate([ self.g, g ]) 
         self.update()
 
-    def EI(self: Self, x: np.ndarray)-> np.ndarray:
+    def EI(self, x: np.ndarray)-> np.ndarray:
         x = np.atleast_1d(x)
         mu, sig = self.predict(x)
         sig = np.diag(sig)
@@ -209,13 +209,13 @@ class GaussianProcess:
         h = (mn - mu) * stats.norm.cdf(z) + sig * stats.norm.pdf(z)
         return np.maximum(h, 0.)
 
-    def UCB(self: Self, x: np.ndarray, beta: float=2.)-> np.ndarray:
+    def UCB(self, x: np.ndarray, beta: float=2.)-> np.ndarray:
         x = np.atleast_1d(x)
         mu, sig = self.predict(x)
         sig = np.diag(sig)
         return mu + beta*sig
 
-    def logL(self: Self)-> float:
+    def logL(self)-> float:
         diff = (self.y - self.mu(self.x)) if self.g is None else (np.concatenate((self.y, self.g)) - mu_grad(self.mu)(self.x))
         z = lin.solve_triangular(self._L, diff, lower=True)
         return -np.sum(np.log(np.diag(self._L))) - .5 * np.dot(z.T, z) - .5 * self.x.shape[0]*np.log(2.*np.pi)
