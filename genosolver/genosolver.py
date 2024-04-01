@@ -36,7 +36,7 @@
 """
 
 import warnings
-from .line_search import line_search_wolfe3
+from .spline import line_search_wolfe4 as line_search_wolfe3
 
 class OptimizeResult(dict):
     """
