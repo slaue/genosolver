@@ -377,19 +377,18 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
             if verbose >= 99:
                 print('STRONG WOLFE SATISFIED')
             return stp, fg_cnt, f, g
-        
-        gp.ker.parameters = np.array([5.,3.])
-        theta = optimize_hyper(gp)
-        stp = optimize_gp(gp)
-        f, g = phi(stp)
-        fg_cnt += 1
-        xvals.append(stp)
-        fvals.append(f)
-        gvals.append(g)
         try:
+            gp.ker.parameters = np.array([5.,3.])
+            theta = optimize_hyper(gp)
+            stp = optimize_gp(gp)
+            f, g = phi(stp)
+            fg_cnt += 1
+            xvals.append(stp)
+            fvals.append(f)
+            gvals.append(g)
             gp.add(stp, fvals[-1], np.dot(gvals[-1], d))
-        except numpy.linalg.linalg.LinAlgError as e:
-            warnings.warn('Line search error:', e)
+        except np.linalg.LinAlgError as e:
+            warnings.warn(f'Line search error: {e}')
             break
     indx = np.argmin(fvals)
         
