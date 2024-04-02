@@ -6,6 +6,7 @@ from autograd import grad, elementwise_grad, jacobian, value_and_grad
 import autograd.numpy as np
 import autograd.scipy.stats as stats
 import autograd.scipy.linalg as lin
+import warnings
 
 class Optimizable(ABC):
 
@@ -287,7 +288,7 @@ def optimize_hyper(gp: GaussianProcess)-> np.ndarray:
     return x0
 
 def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
-                       x: np.ndarray,
+                       xk: np.ndarray,
                        d: np.ndarray,
                        old_fval: float=None,
                        g: np.ndarray=None,
@@ -295,13 +296,18 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
                        c2: float=.9,
                        amax: float=1000,
                        amin: float=1e-14,
-                       verbose: int=0)-> float:
+                       old_old_fval: float=None,
+                       verbose: int=0,
+                       np=np)-> float:
     f_old = old_fval
     g_old = g
-    phi = lambda s: fg(x + s*d)
+    phi = lambda s: fg(xk + s*d)
     stp = min(amax, 1.)
     fg_cnt = 0
     gd_old = np.dot(g, d)
+    gd = gd_old
+    gd_low = gd_old
+    gdinit = gd_old
     gtest = c1*gd_old
     finit = f_old
     f_low = finit
@@ -380,8 +386,11 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
         xvals.append(stp)
         fvals.append(f)
         gvals.append(g)
-        gp.add(stp, fvals[-1], np.dot(gvals[-1], d))
-
+        try:
+            gp.add(stp, fvals[-1], np.dot(gvals[-1], d))
+        except numpy.linalg.linalg.LinAlgError as e:
+            warnings.warn('Line search error:', e)
+            break
     indx = np.argmin(fvals)
         
     return xvals[indx], fg_cnt, fvals[indx], gvals[indx]
