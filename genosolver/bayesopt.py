@@ -272,7 +272,7 @@ def optimize_hyper(gp: GaussianProcess)-> np.ndarray:
         gp.mu.parameters = theta[:mun]
         gp.ker.parameters = theta[mun:]
         gp.update()
-        return -gp.logL() + 1e-6*np.linalg.norm(theta[mun:])**4
+        return -gp.logL() + 1e-6*np.linalg.norm(theta[mun:])**2
 
     x0 = np.concatenate((gp.mu.parameters,gp.ker.parameters))
     g = jacobian(op_fun)
