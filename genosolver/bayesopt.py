@@ -73,12 +73,12 @@ class Matern52(Kernel):
         self.theta = np.array([ sig, theta ])
 
     def __call__(self, d: np.ndarray)-> np.ndarray:
-        xdr = self.theta[1]**2*np.sqrt(5)*abs(d)
-        return self.theta[0]**2*(1 + xdr + xdr**2/3)*np.exp(-xdr)
+        xdr = self.theta[1]*np.sqrt(5)*abs(d)
+        return self.theta[0]*(1 + xdr + xdr**2/3)*np.exp(-xdr)
 
     def grad(self, x: np.ndarray)-> np.ndarray:
         y = super().grad(x)
-        c = self.theta[0]**2*self.theta[1]**4*5/3
+        c = self.theta[0]*self.theta[1]**2*5/3
         mask = np.block([ [np.zeros_like(x), np.zeros_like(x)], [np.zeros_like(x), x==0] ])
         y = y + c * mask
         return y
@@ -92,7 +92,7 @@ class RBF(Kernel):
         self.theta = np.array([ alpha, theta ])
 
     def __call__(self, d: np.ndarray)-> np.ndarray:
-        return self.theta[0]**2 * np.exp(-self.theta[1]**2*(d)**2)
+        return self.theta[0] * np.exp(-self.theta[1]*(d)**2)
 
 class RQK(Kernel):
     '''
@@ -103,7 +103,7 @@ class RQK(Kernel):
         self.theta = np.array([ alpha, theta, p ])
 
     def __call__(self, d: np.ndarray)-> np.ndarray:
-        return self.theta[0]**2*(1+(self.theta[1]*d*self.theta[2])**2)**(-self.theta[2]**2)
+        return self.theta[0]*(1+self.theta[1]*d**2*self.theta[2])**(-self.theta[2])
 
 def polyval(p, x):
     mx = 0.
@@ -255,7 +255,7 @@ def optimize_gp(gp: GaussianProcess)-> np.ndarray:
     g = elementwise_grad(f)
     #gg = elementwise_grad(g)
 
-    for _ in range(5):
+    for _ in range(30):
         s = np.ones(T.shape[0])
         while np.any(idx := (f(T) < f(T - s*g(T)))):
             s[idx] *= .5
@@ -272,15 +272,15 @@ def optimize_hyper(gp: GaussianProcess)-> np.ndarray:
         gp.mu.parameters = theta[:mun]
         gp.ker.parameters = theta[mun:]
         gp.update()
-        return -gp.logL()# + 1e-4*np.linalg.norm(theta[mun:])**4
+        return -gp.logL() + 1e-6*np.linalg.norm(theta[mun:])**4
 
     x0 = np.concatenate((gp.mu.parameters,gp.ker.parameters))
     g = jacobian(op_fun)
     
     from scipy.optimize import minimize
     fg = value_and_grad(op_fun)
-    res = minimize(fg, x0, jac=True, method='CG', options={'gtol': 1e-6})
     mun = gp.mu.parameters.shape[0]
+    res = minimize(fg, x0, jac=True, options={'gtol': 1e-6, 'ftol': 1e-16}, bounds=([(-np.inf, np.inf)]*mun + [(1e-10, np.inf)]*gp.ker.parameters.shape[0]))
     gp.mu.parameters = res.x[:mun]
     gp.ker.parameters = res.x[mun:]
     gp.update()
@@ -381,6 +381,10 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
             gp.ker.parameters = np.array([5.,3.])
             theta = optimize_hyper(gp)
             stp = optimize_gp(gp)
+            if any(abs(gp.x - stp) < 1e-3): # if he predicts the minimum, split the largest segment
+                segs = np.sort(gp.x)
+                indx = np.argmax(segs[1:] - segs[:-1])
+                stp = (segs[indx] + segs[indx+1])/2
             f, g = phi(stp)
             fg_cnt += 1
             xvals.append(stp)
