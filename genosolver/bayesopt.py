@@ -87,7 +87,7 @@ class RBF(Kernel):
     '''
     Gaussian Kernel
     '''
-    
+
     def __init__(self, alpha: float=10., theta: float=.1):
         self.theta = np.array([ alpha, theta ])
 
@@ -106,9 +106,10 @@ class RQK(Kernel):
         return self.theta[0]*(1+self.theta[1]*d**2*self.theta[2])**(-self.theta[2])
 
 def polyval(p, x):
-    mx = 0.
-    for a in p:
-        mx = a + mx * x
+    mx = np.zeros_like(x)
+    for v in p:
+        mx *= x
+        mx += v
     return mx
 
 class PolyRegressor(Expectation):
@@ -132,7 +133,7 @@ class GaussianProcess:
     y: np.ndarray
     g: Optional[np.ndarray]
     _L: np.ndarray
-    
+
     def __init__(self,
                  mu: Callable[[np.ndarray], np.ndarray],
                  ker: Callable[[np.ndarray], np.ndarray],
@@ -193,14 +194,14 @@ class GaussianProcess:
         self.y = np.block([ self.y, y ])
         if g is not None:
             g = np.atleast_1d(g)
-            self.g = g if self.g is None else np.concatenate([ self.g, g ]) 
+            self.g = g if self.g is None else np.concatenate([ self.g, g ])
         self.update()
 
     def EI(self, x: np.ndarray)-> np.ndarray:
         x = np.atleast_1d(x)
         mu, sig = self.predict(x)
         sig = np.diag(sig)
-        
+
         mn = self.y.min()
         #indx = (sig != 0)
         z = np.zeros(x.shape[0])
@@ -248,19 +249,20 @@ def plot_gp(gp: GaussianProcess, f=None, g=None):
         axs[1].plot(t, ex[n:] - 2 * np.diagonal(cov[n:]), '--r')
         axs[1].plot(gp.x, gp.g, 'x')
         plt.show()
-        
+
 def optimize_gp(gp: GaussianProcess)-> np.ndarray:
     T = np.linspace(0., 1., 100)
     f = lambda x: gp.UCB(x, -2)[:x.shape[0]]
     g = elementwise_grad(f)
     #gg = elementwise_grad(g)
+    T = np.stack((T, np.ones_like(T)), axis=1)
 
-    for _ in range(30):
-        s = np.ones(T.shape[0])
-        while np.any(idx := (f(T) < f(T - s*g(T)))):
-            s[idx] *= .5
-        T = T - s*g(T)
-        T = np.clip(T, 0., 1.)
+    for _ in range(5):
+        mi = T.mean(axis=1)
+        gmi = g(mi)
+        T[:, 1*(gmi<0.)] = mi
+
+    T = T.mean(axis=1)
 
     indx = np.argmin(gp.UCB(T, -2.)[:T.shape[0]])
 
@@ -272,11 +274,11 @@ def optimize_hyper(gp: GaussianProcess)-> np.ndarray:
         gp.mu.parameters = theta[:mun]
         gp.ker.parameters = theta[mun:]
         gp.update()
-        return -gp.logL() + 1e-6*np.linalg.norm(theta[mun:])**2
+        return -gp.logL()# + 1e-6*np.linalg.norm(theta[mun:])**2
 
     x0 = np.concatenate((gp.mu.parameters,gp.ker.parameters))
     g = jacobian(op_fun)
-    
+
     from scipy.optimize import minimize
     fg = value_and_grad(op_fun)
     mun = gp.mu.parameters.shape[0]
@@ -284,7 +286,7 @@ def optimize_hyper(gp: GaussianProcess)-> np.ndarray:
     gp.mu.parameters = res.x[:mun]
     gp.ker.parameters = res.x[mun:]
     gp.update()
-        
+
     return x0
 
 def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
@@ -313,7 +315,7 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
     f_low = finit
     delta = 0.
     alpha = 1.
-    
+
     if f_old is None or g_old is None:
         f_old, g_old = phi(0.)
         fg_cnt += 1
@@ -363,7 +365,7 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
     mu = PolyRegressor(a)
     ker = RBF(10., 3.)
 
-    gp = GaussianProcess(mu, ker, reg=1e-8)
+    gp = GaussianProcess(mu, ker, reg=1e-10)
     gp.add(x, y, gx)
 
     xvals = [ *x ]
@@ -395,9 +397,9 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
             warnings.warn(f'Line search error: {e}')
             break
     indx = np.argmin(fvals)
-        
+
     return xvals[indx], fg_cnt, fvals[indx], gvals[indx]
-    
+
 if __name__ == '__main__':
 
     x = [[0,0,0,0,1],
@@ -407,8 +409,8 @@ if __name__ == '__main__':
          [1,1,1,1,1]]
     y = [1,0,0,0,1]
     A = np.linalg.lstsq(x, y, rcond=-1)[0]
-    
-    f = lambda x: np.exp(x)*x - np.sqrt(.01+x) + np.cos(x)#polyval(A, x)
+
+    f = lambda x: np.sin(30*x)# np.exp(x)*x - np.sqrt(.01+x) + np.cos(x)#polyval(A, x)
     g = elementwise_grad(f)#polyval(A[:-1]*[4,3,2,1], x)
     T = np.linspace(0,1,10000)
     plt.plot(T, f(T))
@@ -430,16 +432,16 @@ if __name__ == '__main__':
     y = f(x)
     gx = g(x)
 
-    gp = GaussianProcess(mu, ker, reg=1e-6)
+    gp = GaussianProcess(mu, ker, reg=1e-10)
     gp.add(x, y, gx)
 
 
     T = np.linspace(0,1,100)
     for _ in range(10):
         theta = optimize_hyper(gp)
-        
+
         plot_gp(gp, f, g)
-    
+
         nxt = optimize_gp(gp)
         t = np.linspace(0, 1, 1000)
         plt.plot(t, gp.UCB(t,-2)[:t.shape[0]], '-.')
