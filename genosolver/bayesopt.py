@@ -401,7 +401,7 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
         gp = GaussianProcess(mu, ker, reg=np.clip(max(min(y), min(gx))*1e-1, 1e-16, 1e-10))
         gp.add(x, y, gx)
     except np.linalg.LinAlgError as e:
-        warnings.warn(f'Line search error: {e}')    
+        warnings.warn(f'Line search error: {e}')
         indx = np.argmin(fvals)
     
         return xvals[indx], fg_cnt, fvals[indx], gvals[indx]
@@ -416,12 +416,20 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
             return stp, fg_cnt, f, g
         try:
             #gp.ker.parameters = np.array([5.,3.])
+            old_mu = gp.mu.parameters.copy()
+            old_ker = gp.ker.parameters.copy()
             theta = optimize_hyper(gp)
+        except np.linalg.LinAlgError as e:
+            warnings.warn(f'Line search error: could not optimize hyperparameters')
+            gp.mu.parameters = old_mu
+            gp.ker.parameters = old_ker
+            gp.update()
+        try:
             stp = optimize_gp(gp)
-            #if any(abs(gp.x - stp) < 1e-3): # if he predicts the minimum, split the largest segment
-            #    segs = np.sort(gp.x)
-            #    indx = np.argmax(segs[1:] - segs[:-1])
-            #    stp = (segs[indx] + segs[indx+1])/2
+            #df = gp.x - stp
+            #hi = np.min(df[df>0.])
+            #lo = np.max(df[df<=0.])
+            #stp = np.clip(stp, (hi-lo)*1e-3 + lo+stp,hi+stp-(hi-lo)*1e-3)
             f, g = phi(stp)
             fg_cnt += 1
             xvals.append(stp)
