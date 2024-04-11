@@ -223,8 +223,8 @@ class GaussianProcess:
         return -np.sum(np.log(np.diag(self._L))) - .5 * np.dot(z.T, z) - .5 * self.x.shape[0]*np.log(2.*np.pi)
 
 def plot_gp(gp: GaussianProcess, f=None, g=None):
-    n = 1000
-    t = np.linspace(0, 1, 1000)
+    n = 10000
+    t = np.linspace(0, 1, n)
     ex, cov = gp.predict(t)
     if gp.g is None:
         if f is not None:
@@ -255,19 +255,22 @@ def optimize_gp(gp: GaussianProcess)-> np.ndarray:
     f = lambda x: gp.UCB(x, -2)[:x.shape[0]]
     g = elementwise_grad(f)
     #gg = elementwise_grad(g)
-    T = np.stack((T, np.ones_like(T)), axis=1)
+    T = np.stack((T[:-1], T[1:]), axis=1)
+    rows = np.arange(T.shape[0])
 
     for _ in range(5):
         mi = T.mean(axis=1)
-        gmi = g(mi)
-        T[:, 1*(gmi<0.)] = mi
+        gmi = 1*(g(mi)>0.)
+        T[rows,gmi] = mi
 
-    T = T.mean(axis=1)
+    T = T.reshape(-1)
 
     indx = np.argmin(gp.UCB(T, -2.)[:T.shape[0]])
 
     return T[indx]
 
+from scipy.optimize import minimize
+    
 def optimize_hyper(gp: GaussianProcess)-> np.ndarray:
     def op_fun(theta: np.ndarray)-> np.ndarray:
         mun = gp.mu.parameters.shape[0]
@@ -279,7 +282,6 @@ def optimize_hyper(gp: GaussianProcess)-> np.ndarray:
     x0 = np.concatenate((gp.mu.parameters,gp.ker.parameters))
     g = jacobian(op_fun)
 
-    from scipy.optimize import minimize
     fg = value_and_grad(op_fun)
     mun = gp.mu.parameters.shape[0]
     res = minimize(fg, x0, jac=True, options={'gtol': 1e-6, 'ftol': 1e-16}, bounds=([(-np.inf, np.inf)]*mun + [(1e-10, np.inf)]*gp.ker.parameters.shape[0]))
@@ -358,11 +360,11 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
     y = np.array([ f_low, f ])
     gx = np.array([ gd_low, gd ])
 
-    a = np.linalg.lstsq([[0,0,0,1.],
-                         [1,1,1,1],
-                         [0,0,1,0],
-                         [3,2,1,0]], [*y, *gx], rcond=-1)[0]
-    mu = PolyRegressor(a)
+    #a = np.linalg.lstsq([[0,0,0,1.],
+    #                     [1,1,1,1],
+    #                     [0,0,1,0],
+    #                     [3,2,1,0]], [*y, *gx], rcond=-1)[0]
+    mu = PolyRegressor(np.array([1.]))#a)
     ker = RBF(10., 3.)
 
     gp = GaussianProcess(mu, ker, reg=1e-10)
