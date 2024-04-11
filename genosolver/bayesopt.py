@@ -408,7 +408,6 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
     
 
     for _i in range(20):
-        plot_gp(gp, lambda x: phi(x)[0], lambda x: phi(x)[1]@d)
         ftest = finit + stp*gtest
         if f < ftest and abs(g.dot(d)) <= c2 * (-gdinit):
             if verbose >= 99:
