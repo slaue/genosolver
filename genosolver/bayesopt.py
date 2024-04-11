@@ -223,7 +223,7 @@ class GaussianProcess:
         return -np.sum(np.log(np.diag(self._L))) - .5 * np.dot(z.T, z) - .5 * self.x.shape[0]*np.log(2.*np.pi)
 
 def plot_gp(gp: GaussianProcess, f=None, g=None):
-    n = 10000
+    n = 100
     t = np.linspace(0, 1, n)
     ex, cov = gp.predict(t)
     if gp.g is None:
@@ -237,13 +237,13 @@ def plot_gp(gp: GaussianProcess, f=None, g=None):
     else:
         fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(12,6))
         if f is not None:
-            axs[0].plot(t, f(t), '-.')
+            axs[0].plot(t, [f(s) for s in t], '-.')
         axs[0].plot(t, ex[:n])
         axs[0].plot(t, ex[:n] + 2 * np.diagonal(cov[:n]), '--r')
         axs[0].plot(t, ex[:n] - 2 * np.diagonal(cov[:n]), '--r')
         axs[0].plot(gp.x, gp.y, 'x')
         if g is not None:
-            axs[1].plot(t, g(t), '-.')
+            axs[1].plot(t, [g(s) for s in t], '-.')
         axs[1].plot(t, ex[n:])
         axs[1].plot(t, ex[n:] + 2 * np.diagonal(cov[n:]), '--r')
         axs[1].plot(t, ex[n:] - 2 * np.diagonal(cov[n:]), '--r')
@@ -284,7 +284,8 @@ def optimize_hyper(gp: GaussianProcess)-> np.ndarray:
 
     fg = value_and_grad(op_fun)
     mun = gp.mu.parameters.shape[0]
-    res = minimize(fg, x0, jac=True, options={'gtol': 1e-6, 'ftol': 1e-16}, bounds=([(-np.inf, np.inf)]*mun + [(1e-10, np.inf)]*gp.ker.parameters.shape[0]))
+    res = minimize(fg, x0, jac=True, options={'gtol': 1e-6, 'ftol': 1e-16}, bounds=([(-np.inf, np.inf)]*mun + [(1e-10, 1e5)]*gp.ker.parameters.shape[0]))
+    #print(res)
     gp.mu.parameters = res.x[:mun]
     gp.ker.parameters = res.x[mun:]
     gp.update()
@@ -339,10 +340,11 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
         else:
             print('No step size found')
             return None, fg_cnt, finit, g_old
-        if f >= f_low or g.dot(d) >= c2*gdinit:
+        gd = g.dot(d)
+        if f >= f_low or gd >= c2*gdinit:
             break
         g_low = g
-        gd_low = g.dot(d)
+        gd_low = gd
         f_low = f
         delta = delta + alpha
         alpha = 4. * alpha
@@ -356,39 +358,70 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
             print('STRONG WOLFE SATISFIED')
         return stp, fg_cnt, f, g
 
+    ftest = finit + stp*gtest
+    if f < ftest and abs(g.dot(d)) <= c2 * (-gdinit):
+        if verbose >= 99:
+            print('STRONG WOLFE SATISFIED')
+        return stp, fg_cnt, f, g
+
     x = np.array([ delta, stp ])
     y = np.array([ f_low, f ])
     gx = np.array([ gd_low, gd ])
 
-    #a = np.linalg.lstsq([[0,0,0,1.],
-    #                     [1,1,1,1],
-    #                     [0,0,1,0],
-    #                     [3,2,1,0]], [*y, *gx], rcond=-1)[0]
-    mu = PolyRegressor(np.array([1.]))#a)
-    ker = RBF(10., 3.)
-
-    gp = GaussianProcess(mu, ker, reg=1e-10)
-    gp.add(x, y, gx)
+    a = np.linalg.lstsq([[0,0,0,1.],
+                         [1,1,1,1],
+                         [0,0,1,0],
+                         [3,2,1,0]], [*y, *gx], rcond=-1)[0]
+    
+    pfg = value_and_grad(lambda x: polyval(a, x))
+    res1 = minimize(pfg, delta, jac=True, options={'gtol': 1e-6, 'ftol': 1e-16}, bounds=[(delta, stp)])
+    res2 = minimize(pfg, stp, jac=True, options={'gtol': 1e-6, 'ftol': 1e-16}, bounds=[(delta, stp)])
 
     xvals = [ *x ]
     fvals = [ *y ]
     gvals = [ g_old, g ]
+    
+    stp2 = (res2.x if res2.fun < res1.fun else res1.x)[0]
+    stp = np.clip(stp2, (stp-delta)*1e-3 + delta, stp - (stp-delta)*1e-3)
+    f, g = phi(stp)
+    fg_cnt += 1
+    
+    xvals.append(stp)
+    fvals.append(f)
+    gvals.append(g)
+    
+    mu = PolyRegressor(a)
+    ker = RBF(10., 3.)
+    
+    x = np.array(xvals)
+    y = np.array(fvals)
+    gx = np.array([ gs.dot(d) for gs in gvals ])
 
-    for _ in range(20):
+    try:
+        gp = GaussianProcess(mu, ker, reg=np.clip(max(min(y), min(gx))*1e-1, 1e-16, 1e-10))
+        gp.add(x, y, gx)
+    except np.linalg.LinAlgError as e:
+        warnings.warn(f'Line search error: {e}')    
+        indx = np.argmin(fvals)
+    
+        return xvals[indx], fg_cnt, fvals[indx], gvals[indx]
+    
 
+    for _i in range(20):
+        plot_gp(gp, lambda x: phi(x)[0], lambda x: phi(x)[1]@d)
         ftest = finit + stp*gtest
         if f < ftest and abs(g.dot(d)) <= c2 * (-gdinit):
             if verbose >= 99:
                 print('STRONG WOLFE SATISFIED')
             return stp, fg_cnt, f, g
         try:
-            gp.ker.parameters = np.array([5.,3.])
+            #gp.ker.parameters = np.array([5.,3.])
             theta = optimize_hyper(gp)
             stp = optimize_gp(gp)
-            if any(abs(gp.x - stp) < 1e-3): # if he predicts the minimum, split the largest segment
-                segs = np.sort(gp.x)
-                indx = np.argmax(segs[1:] - segs[:-1])
-                stp = (segs[indx] + segs[indx+1])/2
+            #if any(abs(gp.x - stp) < 1e-3): # if he predicts the minimum, split the largest segment
+            #    segs = np.sort(gp.x)
+            #    indx = np.argmax(segs[1:] - segs[:-1])
+            #    stp = (segs[indx] + segs[indx+1])/2
             f, g = phi(stp)
             fg_cnt += 1
             xvals.append(stp)
@@ -398,6 +431,7 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
         except np.linalg.LinAlgError as e:
             warnings.warn(f'Line search error: {e}')
             break
+    
     indx = np.argmin(fvals)
 
     return xvals[indx], fg_cnt, fvals[indx], gvals[indx]

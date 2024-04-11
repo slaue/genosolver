@@ -78,7 +78,7 @@ class Cubic:
         if not alpha is None:
             t = np.linspace(0., 1., 100)
             fxs = self.nonscale_f(t)
-            imin = np.argmin(self.nonscale_f(t))
+            imin = np.argmin(fxs)
             self._min_fx = fxs[imin]
             self._min_x = t[imin] * (self.x1 - self.x0) + self.x0
             #fmin, tmin = min(( (self.nonscale_f(i), -i) for i in t ))
@@ -138,6 +138,7 @@ class Spline:
         xm = cub._min_x
         x0 = cub.x0
         x1 = cub.x1
+        xm = np.clip(xm, (x1 - x0) * .1 + x0, x1 - (x1 - x0) * .1)
         fxm, gxm = self.fg(xm)
 
         indx = bisect_left(self.cubics, cub)
@@ -317,6 +318,7 @@ def line_search_wolfe4_debug(fg, xk, d, g=None,
                              xtol=1e-14, verbose=100, np=numpy, plot_path=None):
 
     stp = np.clip(1., amin, amax)
+    verbose=100
 
     steps_array = []
     save_steps = True
@@ -454,14 +456,23 @@ def line_search_wolfe4_debug(fg, xk, d, g=None,
         import matplotlib.pyplot as plt
         import os, datetime
         from bisect import bisect_left
+        from .line_search import line_search_wolfe3
         
-        seg = sorted(seg)
         save_steps = False
-        fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(14,6))
-        step_space = np.linspace(0., max(steps_array), 50)
+        sstps = []
+        def fg2(x):
+            sstps.append((x-xk)[0]/d[0])
+            return fg(x)
+        _ = line_search_wolfe3(fg2, xk, d)
 
+        seg = sorted(seg)
+        fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(14,6))
+        step_space = np.linspace(0., max(steps_array), 64)
+
+        axs[0].plot(sstps, [ phi(s)[0] for s in sstps ], 'xg')
         axs[0].plot(step_space, [ phi(s)[0] for s in step_space ])
-        axs[0].plot(step_space, [ seg[bisect_left(seg, s, key=lambda k: k.x1)].f(s) for s in step_space ], '--g')
+        axs[0].plot(steps_array, [ phi(s)[0] for s in steps_array ], '.')
+        #axs[0].plot(step_space, [ seg[bisect_left(seg, s, key=lambda k: k.x1)].f(s) for s in step_space ], '--g')
         axs[0].plot(step_space, [ seg[bisect_left(seg, s, key=lambda k: k.x1)].f(s) - seg[bisect_left(seg, s, key=lambda k: k.x1)].conf_f(s) for s in step_space ], '--r')
         axs[1].semilogy(list(range(len(steps_array))), steps_array)
         if not plot_path is None: 
@@ -471,6 +482,8 @@ def line_search_wolfe4_debug(fg, xk, d, g=None,
         else:
             plt.show()
         plt.close()
+        if len(sstps) > 1+len(steps_array):
+            breakpoint()
 
     #if best_stp > amin:
     #    best_stp = amin
@@ -669,6 +682,7 @@ if __name__ == '__main__':
 
         return functionValue, gradient
     
+    '''
     spl = Spline(fg)
     
     t = np.linspace(-.5, 20.5, 100)
@@ -683,3 +697,4 @@ if __name__ == '__main__':
         plt.show()
         print(spl.min)
         spl.split_min()
+    '''
