@@ -224,7 +224,7 @@ class GaussianProcess:
 
 def plot_gp(gp: GaussianProcess, f=None, g=None):
     n = 100
-    t = np.linspace(0, 1, n)
+    t = np.linspace(gp.x[0], gp.x[1], n)
     ex, cov = gp.predict(t)
     if gp.g is None:
         if f is not None:
@@ -251,7 +251,7 @@ def plot_gp(gp: GaussianProcess, f=None, g=None):
         plt.show()
 
 def optimize_gp(gp: GaussianProcess)-> np.ndarray:
-    T = np.linspace(0., 1., 100)
+    T = np.linspace(gp.x[0], gp.x[1], 100)
     f = lambda x: gp.UCB(x, -2)[:x.shape[0]]
     g = elementwise_grad(f)
     #gg = elementwise_grad(g)
@@ -413,6 +413,7 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
             if verbose >= 99:
                 print('STRONG WOLFE SATISFIED')
             return stp, fg_cnt, f, g
+        plot_gp(gp, lambda x: phi(x)[0], lambda x: phi(x)[1]@d)
         try:
             #gp.ker.parameters = np.array([5.,3.])
             old_mu = gp.mu.parameters.copy()
@@ -425,10 +426,10 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
             gp.update()
         try:
             stp = optimize_gp(gp)
-            #df = gp.x - stp
-            #hi = np.min(df[df>0.])
-            #lo = np.max(df[df<=0.])
-            #stp = np.clip(stp, (hi-lo)*1e-3 + lo+stp,hi+stp-(hi-lo)*1e-3)
+            df = gp.x - stp
+            hi = np.min(df[df>0.])
+            lo = np.max(df[df<=0.])
+            stp = np.clip(stp, (hi-lo)*1e-3 + lo+stp,hi+stp-(hi-lo)*1e-3)
             f, g = phi(stp)
             fg_cnt += 1
             xvals.append(stp)
