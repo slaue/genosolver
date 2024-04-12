@@ -10,9 +10,10 @@ import warnings
 
 class Optimizable(ABC):
 
-    __slots__ = [ 'theta' ]
+    __slots__ = [ 'theta', 'bounds' ]
 
     theta: np.ndarray
+    bounds: list[tuple[float,float]]
 
     @property
     def parameters(self)-> np.ndarray:
@@ -43,7 +44,7 @@ def ker_grad(ker: Callable[[np.ndarray],np.ndarray])-> Callable[[np.ndarray],np.
     def fn_ker(x: np.ndarray)-> np.ndarray:
         A = ker(x)
         g0 = elementwise_grad(ker)
-        C = g0(x)
+        C = g0(x) # Not working?
         B = -C
         g01 = elementwise_grad(g0)
         D = -g01(x)
@@ -69,8 +70,9 @@ class Matern52(Kernel):
     WARNING: autograd cannot calculate d^2/(dx)^2 (solution is a hack)
     '''
 
-    def __init__(self, sig: float=1.5, theta: float=.1):
+    def __init__(self, sig: float=1.5, theta: float=.1, bounds: list[tuple[float,float]]=((1e-18,np.inf),(1e-10,1e5))):
         self.theta = np.array([ sig, theta ])
+        self.bounds = bounds
 
     def __call__(self, d: np.ndarray)-> np.ndarray:
         xdr = self.theta[1]*np.sqrt(5)*abs(d)
@@ -88,19 +90,32 @@ class RBF(Kernel):
     Gaussian Kernel
     '''
 
-    def __init__(self, alpha: float=10., theta: float=.1):
+    def __init__(self, alpha: float=10., theta: float=.1, bounds: list[tuple[float,float]]=((1e-10,1e5),(1e-10,1e5))):
         self.theta = np.array([ alpha, theta ])
+        self.bounds = bounds
 
     def __call__(self, d: np.ndarray)-> np.ndarray:
-        return self.theta[0] * np.exp(-self.theta[1]*(d)**2)
-
+        return self.theta[0] * np.exp(-self.theta[1]/2.*(d)**2)
+    
+    def grad(self, d: np.ndarray)-> np.ndarray:
+        return super().grad(d)
+        A = self(d)
+        B = -self.theta[1]*d*A
+        C = -B
+        D = -self.theta[1]*d*C + self.theta[1]*A
+        E1 = np.concatenate([A, C],axis=1)
+        E2 = np.concatenate([B, D], axis=1)
+        E = np.concatenate([E1, E2],axis=0)
+        return E
+    
 class RQK(Kernel):
     '''
     Rational Quadratic Kernel
     '''
 
-    def __init__(self, alpha: float=10., theta: float=1., p: float=1.):
+    def __init__(self, alpha: float=10., theta: float=1., p: float=1., bounds: list[tuple[float,float]]=((1e-18,np.inf),(1e-10,1e5),(1e-5,1e3))):
         self.theta = np.array([ alpha, theta, p ])
+        self.bounds = bounds
 
     def __call__(self, d: np.ndarray)-> np.ndarray:
         return self.theta[0]*(1+self.theta[1]*d**2*self.theta[2])**(-self.theta[2])
@@ -117,8 +132,9 @@ class PolyRegressor(Expectation):
     Polynomial regression
     '''
 
-    def __init__(self, p: np.ndarray):
+    def __init__(self, p: np.ndarray, bounds: list[tuple[float,float]]=None):
         self.theta = p
+        self.bounds = [(-np.inf,np.inf)]*len(p) if bounds is None else bounds
 
     def __call__(self, x: np.ndarray)-> np.ndarray:
         return polyval(self.theta, x)
@@ -149,29 +165,36 @@ class GaussianProcess:
 
     def expect(self, x: np.ndarray)-> np.ndarray:
         x = np.atleast_1d(x)
-        cov = self.ker(self.x[:,None]-x) if self.g is None else self.ker.grad(self.x[:,None]-x)
+        dff = x[:,None]-self.x
+        cov = self.ker(dff) if self.g is None else self.ker.grad(dff)
         diff = (self.y - self.mu(self.x)) if self.g is None else (np.concatenate((self.y, self.g)) - self.mu.grad(self.x))
         v = lin.solve_triangular(self._L, diff, lower=True)
-        wt = lin.solve_triangular(self._L, cov, lower=True)
+        wt = lin.solve_triangular(self._L, cov.T, lower=True)
         mux = self.mu(x) if self.g is None else self.mu.grad(x)
         return mux + wt.T @ v
 
     def covary(self, x: np.ndarray)-> np.ndarray:
         x = np.atleast_1d(x)
-        cov = self.ker(self.x[:,None]-x) if self.g is None else self.ker.grad(self.x[:,None]-x)
-        V = lin.solve_triangular(self._L, cov, lower=True)
+        dff = x[:,None]-self.x
+        covL = self.ker(dff) if self.g is None else self.ker.grad(dff)
+        covR = self.ker(-dff.T) if self.g is None else self.ker.grad(-dff.T)
+        VR = lin.solve_triangular(self._L, covR, lower=True)
+        VLt = lin.solve_triangular(self._L, covL.T, lower=True)
         kro = self.ker(x[:,None]-x) if self.g is None else self.ker.grad(x[:,None]-x)
-        return kro - V.T @ V
+        return kro - VLt.T @ VR
 
     def predict(self, x: np.ndarray)-> tuple[np.ndarray, np.ndarray]:
         x = np.atleast_1d(x)
-        cov = self.ker(self.x[:,None]-x) if self.g is None else self.ker.grad(self.x[:,None]-x)
+        dff = x[:,None]-self.x
+        covL = self.ker(dff) if self.g is None else self.ker.grad(dff)
+        covR = self.ker(-dff.T) if self.g is None else self.ker.grad(-dff.T)
         diff = (self.y - self.mu(self.x)) if self.g is None else (np.concatenate((self.y, self.g)) - self.mu.grad(self.x))
-        V = lin.solve_triangular(self._L, cov, lower=True)
+        VR = lin.solve_triangular(self._L, covR, lower=True)
+        VLt = lin.solve_triangular(self._L, covL.T, lower=True)
         w = lin.solve_triangular(self._L, diff, lower=True)
         mux = self.mu(x) if self.g is None else self.mu.grad(x)
         kro = self.ker(x[:,None]-x) if self.g is None else self.ker.grad(x[:,None]-x)
-        return mux + V.T @ w, kro - V.T @ V
+        return mux + VR.T @ w, kro - VLt.T @ VR
 
     def update(self, *,
                mu: Optional[Callable[[np.ndarray], np.ndarray]]=None,
@@ -190,8 +213,8 @@ class GaussianProcess:
     def add(self, x: np.ndarray, y: np.ndarray, g: Optional[np.ndarray]=None):
         x = np.atleast_1d(x)
         y = np.atleast_1d(y)
-        self.x = np.block([ self.x, x ])
-        self.y = np.block([ self.y, y ])
+        self.x = np.concatenate([ self.x, x ])
+        self.y = np.concatenate([ self.y, y ])
         if g is not None:
             g = np.atleast_1d(g)
             self.g = g if self.g is None else np.concatenate([ self.g, g ])
@@ -218,7 +241,7 @@ class GaussianProcess:
         return mu + beta*sig
 
     def logL(self)-> float:
-        diff = (self.y - self.mu(self.x)) if self.g is None else (np.concatenate((self.y, self.g)) - mu_grad(self.mu)(self.x))
+        diff = (self.y - self.mu(self.x)) if self.g is None else (np.concatenate((self.y, self.g)) - self.mu.grad(self.x))
         z = lin.solve_triangular(self._L, diff, lower=True)
         return -np.sum(np.log(np.diag(self._L))) - .5 * np.dot(z.T, z) - .5 * self.x.shape[0]*np.log(2.*np.pi)
 
@@ -282,10 +305,11 @@ def optimize_hyper(gp: GaussianProcess)-> np.ndarray:
     x0 = np.concatenate((gp.mu.parameters,gp.ker.parameters))
     g = jacobian(op_fun)
 
+    from scipy.optimize import minimize
     fg = value_and_grad(op_fun)
     mun = gp.mu.parameters.shape[0]
-    res = minimize(fg, x0, jac=True, options={'gtol': 1e-6, 'ftol': 1e-16}, bounds=([(-np.inf, np.inf)]*mun + [(1e-10, 1e5)]*gp.ker.parameters.shape[0]))
-    #print(res)
+    res = minimize(fg, x0, jac=True,options={'gtol': 1e-6, 'ftol': 0.}, bounds=np.concatenate([gp.mu.bounds, gp.ker.bounds]))
+    print(res)
     gp.mu.parameters = res.x[:mun]
     gp.ker.parameters = res.x[mun:]
     gp.update()
