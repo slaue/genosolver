@@ -153,7 +153,7 @@ class GaussianProcess:
         diff = (self.y - self.mu(self.x)) if self.g is None else (np.concatenate((self.y, self.g)) - self.mu.grad(self.x))
         v = lin.solve_triangular(self._L, diff, lower=True)
         wt = lin.solve_triangular(self._L, cov, lower=True)
-        mux = self.mu(x) if self.g is None else self.mu.grad(self.x)
+        mux = self.mu(x) if self.g is None else self.mu.grad(x)
         return mux + wt.T @ v
 
     def covary(self, x: np.ndarray)-> np.ndarray:
@@ -228,9 +228,9 @@ def plot_gp(gp: GaussianProcess, f=None, g=None):
     ex, cov = gp.predict(t)
     if gp.g is None:
         if f is not None:
-            plt.plot(t, f(t), '-.')
+            plt.plot(t, [f(s) for s in t], '-.')
         plt.plot(t, ex)
-        plt.plot(t, ex + 2 * np.diagonal(cov), '--r')
+        plt.plot(t, ex + 2 * np.diagonal(cov), '--g')
         plt.plot(t, ex - 2 * np.diagonal(cov), '--r')
         plt.plot(gp.x, gp.y, 'x')
         plt.show()
@@ -239,14 +239,14 @@ def plot_gp(gp: GaussianProcess, f=None, g=None):
         if f is not None:
             axs[0].plot(t, [f(s) for s in t], '-.')
         axs[0].plot(t, ex[:n])
-        axs[0].plot(t, ex[:n] + 2 * np.diagonal(cov[:n]), '--r')
-        axs[0].plot(t, ex[:n] - 2 * np.diagonal(cov[:n]), '--r')
+        axs[0].plot(t, ex[:n] + 2 * np.diagonal(cov)[:n], '--g')
+        axs[0].plot(t, ex[:n] - 2 * np.diagonal(cov)[:n], '--r')
         axs[0].plot(gp.x, gp.y, 'x')
         if g is not None:
             axs[1].plot(t, [g(s) for s in t], '-.')
         axs[1].plot(t, ex[n:])
-        axs[1].plot(t, ex[n:] + 2 * np.diagonal(cov[n:]), '--r')
-        axs[1].plot(t, ex[n:] - 2 * np.diagonal(cov[n:]), '--r')
+        axs[1].plot(t, ex[n:] + 2 * np.diagonal(cov)[n:], '--g')
+        axs[1].plot(t, ex[n:] - 2 * np.diagonal(cov)[n:], '--r')
         axs[1].plot(gp.x, gp.g, 'x')
         plt.show()
 
@@ -454,7 +454,7 @@ if __name__ == '__main__':
     y = [1,0,0,0,1]
     A = np.linalg.lstsq(x, y, rcond=-1)[0]
 
-    f = lambda x: np.sin(30*x)# np.exp(x)*x - np.sqrt(.01+x) + np.cos(x)#polyval(A, x)
+    f = lambda x: np.exp(x)*x - np.sqrt(.01+x) + np.cos(x)#polyval(A, x)
     g = elementwise_grad(f)#polyval(A[:-1]*[4,3,2,1], x)
     T = np.linspace(0,1,10000)
     plt.plot(T, f(T))
