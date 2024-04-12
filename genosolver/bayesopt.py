@@ -427,7 +427,7 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
         try:
             stp = optimize_gp(gp)
             df = gp.x - stp
-            hi = np.min(df[df>0.])
+            hi = np.min(df[df>0.], initial=gp.x[1])
             lo = np.max(df[df<=0.])
             stp = np.clip(stp, (hi-lo)*1e-3 + lo+stp,hi+stp-(hi-lo)*1e-3)
             f, g = phi(stp)
