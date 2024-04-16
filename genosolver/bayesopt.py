@@ -382,12 +382,6 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
             print('STRONG WOLFE SATISFIED')
         return stp, fg_cnt, f, g
 
-    ftest = finit + stp*gtest
-    if f < ftest and abs(g.dot(d)) <= c2 * (-gdinit):
-        if verbose >= 99:
-            print('STRONG WOLFE SATISFIED')
-        return stp, fg_cnt, f, g
-
     x = np.array([ delta, stp ])
     y = np.array([ f_low, f ])
     gx = np.array([ gd_low, gd ])
@@ -409,6 +403,12 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
     stp = np.clip(stp2, (stp-delta)*1e-3 + delta, stp - (stp-delta)*1e-3)
     f, g = phi(stp)
     fg_cnt += 1
+    
+    ftest = finit + stp*gtest
+    if f < ftest and abs(g.dot(d)) <= c2 * (-gdinit):
+        if verbose >= 99:
+            print('STRONG WOLFE SATISFIED')
+        return stp, fg_cnt, f, g
     
     xvals.append(stp)
     fvals.append(f)
@@ -432,14 +432,9 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
     
 
     for _i in range(20):
-        ftest = finit + stp*gtest
-        if f < ftest and abs(g.dot(d)) <= c2 * (-gdinit):
-            if verbose >= 99:
-                print('STRONG WOLFE SATISFIED')
-            return stp, fg_cnt, f, g
         plot_gp(gp, lambda x: phi(x)[0], lambda x: phi(x)[1]@d)
         try:
-            #gp.ker.parameters = np.array([5.,3.])
+            gp.ker.parameters = np.array([5.,3.])
             old_mu = gp.mu.parameters.copy()
             old_ker = gp.ker.parameters.copy()
             theta = optimize_hyper(gp)
@@ -451,11 +446,16 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
         try:
             stp = optimize_gp(gp)
             df = gp.x - stp
-            hi = np.min(df[df>0.], initial=gp.x[1])
+            hi = np.min(df[df>0.], initial=gp.x[1]-stp)
             lo = np.max(df[df<=0.])
             stp = np.clip(stp, (hi-lo)*1e-3 + lo+stp,hi+stp-(hi-lo)*1e-3)
             f, g = phi(stp)
             fg_cnt += 1
+            ftest = finit + stp*gtest
+            if f < ftest and abs(g.dot(d)) <= c2 * (-gdinit):
+                if verbose >= 99:
+                    print('STRONG WOLFE SATISFIED')
+                return stp, fg_cnt, f, g
             xvals.append(stp)
             fvals.append(f)
             gvals.append(g)
