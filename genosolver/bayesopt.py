@@ -309,7 +309,7 @@ def optimize_hyper(gp: GaussianProcess)-> np.ndarray:
     fg = value_and_grad(op_fun)
     mun = gp.mu.parameters.shape[0]
     res = minimize(fg, x0, jac=True,options={'gtol': 1e-6, 'ftol': 0.}, bounds=np.concatenate([gp.mu.bounds, gp.ker.bounds]))
-    print(res)
+    #print(res)
     gp.mu.parameters = res.x[:mun]
     gp.ker.parameters = res.x[mun:]
     gp.update()
@@ -422,7 +422,7 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
     gx = np.array([ gs.dot(d) for gs in gvals ])
 
     try:
-        gp = GaussianProcess(mu, ker, reg=np.clip(max(min(y), min(gx))*1e-1, 1e-16, 1e-10))
+        gp = GaussianProcess(mu, ker, reg=np.clip(max(min(abs(y)), min(abs(gx)))*1e-1, 1e-16, 1e-10))
         gp.add(x, y, gx)
     except np.linalg.LinAlgError as e:
         warnings.warn(f'Line search error: {e}')
@@ -432,7 +432,7 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
     
 
     for _i in range(20):
-        plot_gp(gp, lambda x: phi(x)[0], lambda x: phi(x)[1]@d)
+        #plot_gp(gp, lambda x: phi(x)[0], lambda x: phi(x)[1]@d)
         try:
             gp.ker.parameters = np.array([5.,3.])
             old_mu = gp.mu.parameters.copy()
