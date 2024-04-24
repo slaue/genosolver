@@ -316,6 +316,23 @@ def optimize_hyper(gp: GaussianProcess)-> np.ndarray:
 
     return x0
 
+def zipNaN(phi: Callable[[float],tuple[float,np.ndarray]],
+           alpha: float,
+           delta: float,
+           stp: float=1.
+           )-> tuple[float, np.ndarray, float, int]:
+
+    fg_cnt = 0
+    for _i in range(20):
+        f, g = phi(delta + stp*alpha)
+        fg_cnt += 1
+        if np.isneginf(f) or np.isfinite(f) and np.isfinite(g).all():
+            return f, g, alpha, fg_cnt
+        
+        alpha = .5 * alpha
+
+    return f, g, None, fg_cnt
+
 def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
                        xk: np.ndarray,
                        d: np.ndarray,
@@ -348,22 +365,13 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
         fg_cnt += 1
 
     for _j in range(20):
-        for _i in range(20):
-            f, g = phi(delta + alpha*stp)
-            fg_cnt += 1
-            if np.isneginf(f):
-                break
-            if np.isfinite(f) and np.isfinite(g).all():
-                break
-
-            if verbose >= 99:
-                print('f or g has inf or nan')
-
-            stp = .5 * stp
-            alpha = .5 * alpha
-        else:
+        f, g, alpha, fg_new = zipNaN(phi, alpha, delta, stp)
+        fg_cnt += fg_new
+        if alpha is None:
             print('No step size found')
             return None, fg_cnt, finit, g_old
+        if np.isneginf(f):
+            return delta + stp*alpha, fg_cnt, f, g
         gd = g.dot(d)
         if f >= f_low or gd >= c2*gdinit:
             break
@@ -401,6 +409,7 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
     
     stp2 = (res2.x if res2.fun < res1.fun else res1.x)[0]
     stp = np.clip(stp2, (stp-delta)*1e-3 + delta, stp - (stp-delta)*1e-3)
+    
     f, g = phi(stp)
     fg_cnt += 1
     
