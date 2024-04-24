@@ -98,7 +98,6 @@ class RBF(Kernel):
         return self.theta[0] * np.exp(-self.theta[1]/2.*(d)**2)
     
     def grad(self, d: np.ndarray)-> np.ndarray:
-        return super().grad(d)
         A = self(d)
         B = -self.theta[1]*d*A
         C = -B
