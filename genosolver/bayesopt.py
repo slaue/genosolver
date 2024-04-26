@@ -119,6 +119,46 @@ class RQK(Kernel):
     def __call__(self, d: np.ndarray)-> np.ndarray:
         return self.theta[0]*(1+self.theta[1]*d**2*self.theta[2])**(-self.theta[2])
 
+class CubicSpline(Kernel):
+    '''
+    SPH Cubic Spline Kernel
+    '''
+
+    def __init__(self, alpha: float=10., delta: float=1., bounds: list[tuple[float,float]]=((1e-10,1e10),(1e-10,2.))):
+        self.theta = np.array([ alpha, delta ])
+        self.bounds = bounds
+
+    def __call__(self, d: np.ndarray)-> np.ndarray:
+        mask0 = np.zeros_like(d)
+        mask1 = np.zeros_like(d)
+        mask2 = np.zeros_like(d)
+        da = self.theta[1]*np.abs(d)
+        mask1[(da<=1)] = 1.
+        mask2[(da<=2) & (da>1)] = 1.
+        E = mask1*(1-3/2*da**2*(1-da/2))
+        E = E + mask2*(2-da)**3*4
+        return E
+    
+    def grad(self, d: np.ndarray)-> np.ndarray:
+        mask1 = np.zeros_like(d)
+        mask2 = np.zeros_like(d)
+        da = self.theta[1]*np.abs(d)
+        mask1[da<1] = 1.
+        mask2[da<2] = 1.
+        mask2[mask1==1.] = 0.
+        A = mask1*(1-3/2*da**2*(1-da/2)) + mask2*(2-da)**3/4
+        B = mask1*(3/4*da*(3*da-4)) + mask2*(-3/4*(2-da)**2)
+        B = self.theta[1]*np.sign(d)*B
+        C = -B
+        D = mask1*(9/2*da-3) + mask2*(3-3/2*da)
+        D = -self.theta[1]**2*D
+        E1 = np.concatenate([A, C],axis=1)
+        E2 = np.concatenate([B, D], axis=1)
+        E = np.concatenate([E1, E2],axis=0)
+        E = self.theta[0]*E
+        return E
+
+    
 def polyval(p, x):
     mx = np.zeros_like(x)
     for v in p:
@@ -246,7 +286,7 @@ class GaussianProcess:
 
 def plot_gp(gp: GaussianProcess, f=None, g=None):
     n = 100
-    t = np.linspace(gp.x[0], gp.x[1], n)
+    t = np.linspace(gp.x.min(), gp.x.max(), n)
     ex, cov = gp.predict(t)
     if gp.g is None:
         if f is not None:
@@ -273,7 +313,7 @@ def plot_gp(gp: GaussianProcess, f=None, g=None):
         plt.show()
 
 def optimize_gp(gp: GaussianProcess)-> np.ndarray:
-    T = np.linspace(gp.x[0], gp.x[1], 100)
+    T = np.linspace(gp.x.min(), gp.x.max(), 100)
     f = lambda x: gp.UCB(x, -2)[:x.shape[0]]
     g = elementwise_grad(f)
     #gg = elementwise_grad(g)
@@ -423,7 +463,7 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
     gvals.append(g)
     
     mu = PolyRegressor(a)
-    ker = RBF(10., 3.)
+    ker = CubicSpline(1.,1.)#RBF(10., 3.)
     
     x = np.array(xvals)
     y = np.array(fvals)
@@ -442,7 +482,7 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
     for _i in range(20):
         #plot_gp(gp, lambda x: phi(x)[0], lambda x: phi(x)[1]@d)
         try:
-            gp.ker.parameters = np.array([5.,3.])
+            gp.ker.parameters = np.array([1.,1./(gp.x.max() - gp.x.min())])
             old_mu = gp.mu.parameters.copy()
             old_ker = gp.ker.parameters.copy()
             theta = optimize_hyper(gp)
@@ -454,7 +494,7 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
         try:
             stp = optimize_gp(gp)
             df = gp.x - stp
-            hi = np.min(df[df>0.], initial=gp.x[1]-stp)
+            hi = np.min(df[df>0.], initial=gp.x.max()-stp)
             lo = np.max(df[df<=0.])
             stp = np.clip(stp, (hi-lo)*1e-3 + lo+stp,hi+stp-(hi-lo)*1e-3)
             f, g = phi(stp)
