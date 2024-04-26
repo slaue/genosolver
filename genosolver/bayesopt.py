@@ -474,7 +474,7 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
         gp.add(x, y, gx)
     except np.linalg.LinAlgError as e:
         warnings.warn(f'Line search error: {e}')
-        indx = np.argmin(fvals)
+        indx = len(fvals) - 1 - np.argmin(fvals[::-1])
     
         return xvals[indx], fg_cnt, fvals[indx], gvals[indx]
     
@@ -485,6 +485,11 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
             gp.ker.parameters = np.array([1.,1./(gp.x.max() - gp.x.min())])
             old_mu = gp.mu.parameters.copy()
             old_ker = gp.ker.parameters.copy()
+            gp.update()
+        except np.linalg.LinAlgError as e:
+            warnings.warn(f'Line search error: could not initialize hyperparameters')
+            break
+        try:
             theta = optimize_hyper(gp)
         except np.linalg.LinAlgError as e:
             warnings.warn(f'Line search error: could not optimize hyperparameters')
@@ -512,7 +517,7 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
             warnings.warn(f'Line search error: {e}')
             break
     
-    indx = np.argmin(fvals)
+    indx = len(fvals) - 1 - np.argmin(fvals[::-1])
 
     return xvals[indx], fg_cnt, fvals[indx], gvals[indx]
 
