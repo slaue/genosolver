@@ -463,7 +463,7 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
     gvals.append(g)
     
     mu = PolyRegressor(a)
-    ker = CubicSpline(1.,1.)#RBF(10., 3.)
+    ker = RBF(10., 3.)#CubicSpline(1.,1.)#RBF(10., 3.)
     
     x = np.array(xvals)
     y = np.array(fvals)
@@ -482,7 +482,7 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
     for _i in range(20):
         #plot_gp(gp, lambda x: phi(x)[0], lambda x: phi(x)[1]@d)
         try:
-            gp.ker.parameters = np.array([1.,1./(gp.x.max() - gp.x.min())])
+            #gp.ker.parameters = np.array([1.,1./(gp.x.max() - gp.x.min())])
             old_mu = gp.mu.parameters.copy()
             old_ker = gp.ker.parameters.copy()
             gp.update()
@@ -502,8 +502,14 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
             hi = np.min(df[df>0.], initial=gp.x.max()-stp)
             lo = np.max(df[df<=0.])
             stp = np.clip(stp, (hi-lo)*1e-3 + lo+stp,hi+stp-(hi-lo)*1e-3)
-            f, g = phi(stp)
-            fg_cnt += 1
+            f, g, alpha, fg_new = zipNaN(phi, stp - gp.x.min(), gp.x.min())
+            fg_cnt += fg_new
+            if alpha != stp:
+                indx = (gp.x < alpha)
+                stp = alpha
+                gp.x = gp.x[indx]
+                gp.y = gp.y[indx]
+                gp.gx = gp.gx[indx]
             ftest = finit + stp*gtest
             if f < ftest and abs(g.dot(d)) <= c2 * (-gdinit):
                 if verbose >= 99:
