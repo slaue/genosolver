@@ -503,13 +503,14 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
             lo = np.max(df[df<=0.])
             stp = np.clip(stp, (hi-lo)*1e-3 + lo+stp,hi+stp-(hi-lo)*1e-3)
             f, g, alpha, fg_new = zipNaN(phi, stp - gp.x.min(), gp.x.min())
+            stp_new = gp.x.min() + alpha
             fg_cnt += fg_new
-            if alpha != stp:
-                indx = (gp.x < alpha)
+            if stp_new != stp:
+                indx = (gp.x < stp_new)
                 stp = alpha
                 gp.x = gp.x[indx]
                 gp.y = gp.y[indx]
-                gp.gx = gp.gx[indx]
+                gp.g = gp.g[indx]
             ftest = finit + stp*gtest
             if f < ftest and abs(g.dot(d)) <= c2 * (-gdinit):
                 if verbose >= 99:
