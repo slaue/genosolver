@@ -101,10 +101,10 @@ def line_search_wolfe45(fg, xk, d, g=None,
             break
 
         nxtstp = None
-        nxtp = 0.
+        nxtp = float('-inf')
         for j in range(i):
             nes, nep = pval(segs[j+1] - segs[j], fvals[j], fvals[j+1], gvals[j], gvals[j+1], fvals.min() - 1./i)
-            if np > nxtp:
+            if nep > nxtp:
                 nxtstp = nes*(segs[j+1] - segs[j]) + segs[j]
                 nxtp = nep
 
