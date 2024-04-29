@@ -448,9 +448,13 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
     
     stp2 = (res2.x if res2.fun < res1.fun else res1.x)[0]
     stp = np.clip(stp2, (stp-delta)*1e-3 + delta, stp - (stp-delta)*1e-3)
-    
-    f, g = phi(stp)
-    fg_cnt += 1
+
+    f, g, alpha, fg_new = zipNaN(phi, stp-delta, delta)
+    fg_cnt += fg_new
+    if alpha is None:
+        print('No step size found')
+        return None, fg_cnt, finit, g_old
+    stp = delta + alpha
     
     ftest = finit + stp*gtest
     if f < ftest and abs(g.dot(d)) <= c2 * (-gdinit):
@@ -503,6 +507,8 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
             lo = np.max(df[df<=0.])
             stp = np.clip(stp, (hi-lo)*1e-3 + lo+stp,hi+stp-(hi-lo)*1e-3)
             f, g, alpha, fg_new = zipNaN(phi, stp - gp.x.min(), gp.x.min())
+            if alpha is None:
+                break
             stp_new = gp.x.min() + alpha
             fg_cnt += fg_new
             if stp_new != stp:
