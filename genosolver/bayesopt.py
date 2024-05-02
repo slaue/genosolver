@@ -476,36 +476,38 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
     try:
         gp = GaussianProcess(mu, ker, reg=np.clip(max(min(abs(y)), min(abs(gx)))*1e-1, 1e-16, 1e-10))
         gp.add(x, y, gx)
-    except np.linalg.LinAlgError as e:
+    except (np.linalg.LinAlgError, ValueError) as e:
         warnings.warn(f'Line search error: {e}')
         indx = len(fvals) - 1 - np.argmin(fvals[::-1])
     
         return xvals[indx], fg_cnt, fvals[indx], gvals[indx]
-    
 
     for _i in range(20):
-        #plot_gp(gp, lambda x: phi(x)[0], lambda x: phi(x)[1]@d)
         try:
             #gp.ker.parameters = np.array([1.,1./(gp.x.max() - gp.x.min())])
-            old_mu = gp.mu.parameters.copy()
-            old_ker = gp.ker.parameters.copy()
+            gp.ker.parameters = np.array([100., 1.])#2*np.ones_like(gp.ker.parameters)
+            gp.mu.parameters = np.zeros_like(gp.mu.parameters)
             gp.update()
-        except np.linalg.LinAlgError as e:
+            #plot_gp(gp, lambda x: phi(x)[0], lambda x: phi(x)[1]@d)
+        except (np.linalg.LinAlgError, ValueError) as e:
             warnings.warn(f'Line search error: could not initialize hyperparameters')
             break
         try:
             theta = optimize_hyper(gp)
-        except np.linalg.LinAlgError as e:
+        except (np.linalg.LinAlgError, ValueError) as e:
             warnings.warn(f'Line search error: could not optimize hyperparameters')
-            gp.mu.parameters = old_mu
-            gp.ker.parameters = old_ker
+            gp.mu.parameters = np.zeros_like(gp.mu.parameters)
+            gp.ker.parameters = np.array([100., 1.])#np.ones_like(gp.ker.parameters)
             gp.update()
         try:
+            #print(f'{gp.x = }')
+            #print(f'{gp.y = }')
+            #print(f'{gp.g = }')
             stp = optimize_gp(gp)
             df = gp.x - stp
             hi = np.min(df[df>0.], initial=gp.x.max()-stp)
             lo = np.max(df[df<=0.])
-            stp = np.clip(stp, (hi-lo)*1e-3 + lo+stp,hi+stp-(hi-lo)*1e-3)
+            stp = np.clip(stp, (hi-lo)*.3 + lo+stp,hi+stp-(hi-lo)*.3)
             f, g, alpha, fg_new = zipNaN(phi, stp - gp.x.min(), gp.x.min())
             if alpha is None:
                 break
@@ -526,7 +528,7 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
             fvals.append(f)
             gvals.append(g)
             gp.add(stp, fvals[-1], np.dot(gvals[-1], d))
-        except np.linalg.LinAlgError as e:
+        except (np.linalg.LinAlgError, ValueError) as e:
             warnings.warn(f'Line search error: {e}')
             break
     
