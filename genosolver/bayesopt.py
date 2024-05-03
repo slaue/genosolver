@@ -515,7 +515,7 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
             fg_cnt += fg_new
             if stp_new != stp:
                 indx = (gp.x < stp_new)
-                stp = alpha
+                stp = stp_new
                 gp.x = gp.x[indx]
                 gp.y = gp.y[indx]
                 gp.g = gp.g[indx]
@@ -527,13 +527,15 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
             xvals.append(stp)
             fvals.append(f)
             gvals.append(g)
+            gp.ker.parameters = np.array([100., 1.])
+            gp.mu.parameters = np.zeros_like(gp.mu.parameters)
             gp.add(stp, fvals[-1], np.dot(gvals[-1], d))
         except (np.linalg.LinAlgError, ValueError) as e:
             warnings.warn(f'Line search error: {e}')
             break
     
     indx = len(fvals) - 1 - np.argmin(fvals[::-1])
-
+    
     return xvals[indx], fg_cnt, fvals[indx], gvals[indx]
 
 if __name__ == '__main__':
