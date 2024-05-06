@@ -313,7 +313,8 @@ def plot_gp(gp: GaussianProcess, f=None, g=None):
         plt.show()
 
 def optimize_gp(gp: GaussianProcess)-> np.ndarray:
-    T = np.linspace(gp.x.min(), gp.x.max(), 100)
+    mi = (gp.x.min()+gp.x.max())/2
+    T = np.concatenate([np.linspace(gp.x.min(), mi, 81), np.linspace(mi, gp.x.max(), 21)])
     f = lambda x: gp.UCB(x, -2)[:x.shape[0]]
     g = elementwise_grad(f)
     #gg = elementwise_grad(g)
@@ -488,7 +489,6 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
             gp.ker.parameters = np.array([100., 1.])#2*np.ones_like(gp.ker.parameters)
             gp.mu.parameters = np.zeros_like(gp.mu.parameters)
             gp.update()
-            #plot_gp(gp, lambda x: phi(x)[0], lambda x: phi(x)[1]@d)
         except (np.linalg.LinAlgError, ValueError) as e:
             warnings.warn(f'Line search error: could not initialize hyperparameters')
             break
@@ -499,6 +499,7 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
             gp.mu.parameters = np.zeros_like(gp.mu.parameters)
             gp.ker.parameters = np.array([100., 1.])#np.ones_like(gp.ker.parameters)
             gp.update()
+        #plot_gp(gp, lambda x: phi(x)[0], lambda x: phi(x)[1]@d)
         try:
             #print(f'{gp.x = }')
             #print(f'{gp.y = }')
