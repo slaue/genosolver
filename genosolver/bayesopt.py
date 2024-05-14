@@ -313,8 +313,9 @@ def plot_gp(gp: GaussianProcess, f=None, g=None):
         plt.show()
 
 def optimize_gp(gp: GaussianProcess)-> np.ndarray:
-    mi = (gp.x.min()+gp.x.max())/2
-    T = np.concatenate([np.linspace(gp.x.min(), mi, 81), np.linspace(mi, gp.x.max(), 21)])
+    #nper = 100//(len(gp.x) - 1)
+    #T = np.concatenate([ np.linspace(gp.x[i-1], gp.x[i], nper) for i in range(1,len(gp.x)) ])
+    T = np.linspace(gp.x.min(), gp.x.max(), 100)
     f = lambda x: gp.UCB(x, -2)[:x.shape[0]]
     g = elementwise_grad(f)
     #gg = elementwise_grad(g)
@@ -448,7 +449,7 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
     gvals = [ g_old, g ]
     
     stp2 = (res2.x if res2.fun < res1.fun else res1.x)[0]
-    stp = np.clip(stp2, (stp-delta)*1e-3 + delta, stp - (stp-delta)*1e-3)
+    stp = np.clip(stp2, (stp-delta)*.3 + delta, stp - (stp-delta)*.3)
 
     f, g, alpha, fg_new = zipNaN(phi, stp-delta, delta)
     fg_cnt += fg_new
