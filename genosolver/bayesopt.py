@@ -313,19 +313,25 @@ def plot_gp(gp: GaussianProcess, f=None, g=None):
         plt.show()
 
 def optimize_gp(gp: GaussianProcess)-> np.ndarray:
-    #nper = 100//(len(gp.x) - 1)
+    #nper = 1000//(len(gp.x) - 1)
     #T = np.concatenate([ np.linspace(gp.x[i-1], gp.x[i], nper) for i in range(1,len(gp.x)) ])
-    T = np.linspace(gp.x.min(), gp.x.max(), 100)
-    f = lambda x: gp.UCB(x, -2)[:x.shape[0]]
-    g = elementwise_grad(f)
+    T = np.logspace(-14, 0, 200, base=2) * (gp.x.max() - gp.x.min()) + gp.x.min()
+    #f = lambda x: gp.UCB(x, -2)[:x.shape[0]]
+    #g = lambda x: gp.UCB(x, -2)[x.shape[0]:]#elementwise_grad(f)
     #gg = elementwise_grad(g)
+    f0 = gp.UCB(gp.x.min(), -2)[0]
     T = np.stack((T[:-1], T[1:]), axis=1)
     rows = np.arange(T.shape[0])
 
-    for _ in range(5):
+    for _ in range(10):
         mi = T.mean(axis=1)
-        gmi = 1*(g(mi)>0.)
-        T[rows,gmi] = mi
+        fg = gp.UCB(mi, -2)
+        gmi = fg[mi.shape[0]:]
+        fmi = fg[:mi.shape[0]]
+        if any((abs(gmi) < 1e-6) & (fmi < f0)): break
+        #print(f'{g(mi)[:10] = }')
+        #print(f'{gp.UCB(mi,-2)[mi.shape[0]:][:10] = }')
+        T[rows,1*(gmi>0.)] = mi
 
     T = T.reshape(-1)
 
@@ -483,12 +489,13 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
         indx = len(fvals) - 1 - np.argmin(fvals[::-1])
     
         return xvals[indx], fg_cnt, fvals[indx], gvals[indx]
-
+    
+    default_ker = np.array([0., 1e5])
+    default_mu = np.linalg.lstsq(np.vander(gp.x, 4), gp.y, rcond=None)[0]#np.zeros_like(gp.mu.parameters)
     for _i in range(20):
         try:
-            #gp.ker.parameters = np.array([1.,1./(gp.x.max() - gp.x.min())])
-            gp.ker.parameters = np.array([100., 1.])#2*np.ones_like(gp.ker.parameters)
-            gp.mu.parameters = np.zeros_like(gp.mu.parameters)
+            gp.ker.parameters = default_ker.copy()
+            gp.mu.parameters = default_mu.copy()
             gp.update()
         except (np.linalg.LinAlgError, ValueError) as e:
             warnings.warn(f'Line search error: could not initialize hyperparameters')
@@ -497,19 +504,16 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
             theta = optimize_hyper(gp)
         except (np.linalg.LinAlgError, ValueError) as e:
             warnings.warn(f'Line search error: could not optimize hyperparameters')
-            gp.mu.parameters = np.zeros_like(gp.mu.parameters)
-            gp.ker.parameters = np.array([100., 1.])#np.ones_like(gp.ker.parameters)
+            gp.mu.parameters = default_mu.copy()
+            gp.ker.parameters = default_ker.copy()
             gp.update()
         #plot_gp(gp, lambda x: phi(x)[0], lambda x: phi(x)[1]@d)
         try:
-            #print(f'{gp.x = }')
-            #print(f'{gp.y = }')
-            #print(f'{gp.g = }')
             stp = optimize_gp(gp)
             df = gp.x - stp
             hi = np.min(df[df>0.], initial=gp.x.max()-stp)
             lo = np.max(df[df<=0.])
-            stp = np.clip(stp, (hi-lo)*.3 + lo+stp,hi+stp-(hi-lo)*.3)
+            stp = np.clip(stp, (hi-lo)*1e-3 + lo+stp,hi+stp-(hi-lo)*1e-3)
             f, g, alpha, fg_new = zipNaN(phi, stp - gp.x.min(), gp.x.min())
             if alpha is None:
                 break
@@ -529,16 +533,24 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
             xvals.append(stp)
             fvals.append(f)
             gvals.append(g)
-            gp.ker.parameters = np.array([100., 1.])
-            gp.mu.parameters = np.zeros_like(gp.mu.parameters)
+            gp.ker.parameters = default_ker.copy()
+            gp.mu.parameters = default_mu.copy()
             gp.add(stp, fvals[-1], np.dot(gvals[-1], d))
         except (np.linalg.LinAlgError, ValueError) as e:
             warnings.warn(f'Line search error: {e}')
             break
     
     indx = len(fvals) - 1 - np.argmin(fvals[::-1])
+    x_res = xvals[indx]
+    f_res = fvals[indx]
+    g_res = gvals[indx]
     
-    return xvals[indx], fg_cnt, fvals[indx], gvals[indx]
+    if indx == 0:
+        fg_cnt += 1
+        x_res = xvals[0] + amin
+        f_res, g_res = phi(x_res)
+    
+    return x_res, fg_cnt, f_res, g_res
 
 if __name__ == '__main__':
 
