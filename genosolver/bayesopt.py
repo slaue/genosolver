@@ -594,6 +594,7 @@ def line_search_wolfe6(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
     gtest = c1*gd_old
     finit = f_old
     f_low = finit
+    g_low = g_old
     lo = 0.
     hi = stp
 
@@ -620,8 +621,8 @@ def line_search_wolfe6(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
     else:
         return hi/4., fg_cnt, f, g
 
-    fvals = [f_old, f]
-    gvals = [g_old, g]
+    fvals = [f_low, f]
+    gvals = [g_low, g]
     xvals = [lo, hi]
     
     for _i in range(20):
