@@ -660,7 +660,7 @@ def line_search_wolfe6(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
     
         return xvals[indx], fg_cnt, fvals[indx], gvals[indx]
     
-    default_ker = np.array([1e-10, 1e5])
+    default_ker = np.array([1e0, 1e-10])
     default_mu = np.linalg.lstsq(np.vander(gp.x, 4), gp.y, rcond=None)[0]#np.zeros_like(gp.mu.parameters)
     for _i in range(20):
         try:
