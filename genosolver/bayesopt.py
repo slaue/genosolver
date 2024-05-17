@@ -551,6 +551,171 @@ def line_search_wolfe5(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
     
     return x_res, fg_cnt, f_res, g_res
 
+
+
+def backNaN(phi: Callable[[float],tuple[float,np.ndarray]],
+            lo: float,
+            hi: float,
+           )-> tuple[float, np.ndarray, float, int]:
+
+    fg_cnt = 0
+    for _i in range(20):
+        f, g = phi(hi)
+        fg_cnt += 1
+        if np.isneginf(f) or np.isfinite(f) and np.isfinite(g).all():
+            return f, g, hi, fg_cnt
+        
+        hi = .5*(lo+hi)
+
+    return f, g, None, fg_cnt
+
+
+def line_search_wolfe6(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
+                       xk: np.ndarray,
+                       d: np.ndarray,
+                       old_fval: float=None,
+                       g: np.ndarray=None,
+                       c1: float=1e-4,
+                       c2: float=.9,
+                       amax: float=1000.,
+                       amin: float=0., # not used
+                       old_old_fval: float=None,
+                       verbose: int=0,
+                       np=np)-> float:
+    f_old = old_fval
+    g_old = g
+    phi = lambda s: fg(xk + s*d)
+    stp = min(1., amax)
+    fg_cnt = 0
+    gd_old = np.dot(g, d)
+    gd = gd_old
+    gd_low = gd_old
+    gdinit = gd_old
+    gtest = c1*gd_old
+    finit = f_old
+    f_low = finit
+    lo = 0.
+    hi = stp
+
+    if f_old is None or g_old is None:
+        f_old, g_old = phi(0.)
+        fg_cnt += 1
+        
+    for _j in range(20):
+        f, g, hi_new, fg_new = backNaN(phi, lo, hi)
+        fg_cnt += fg_new
+        if hi_new is None:
+            print('No step size found')
+            return None, fg_cnt, finit, g_old
+        if np.isneginf(f):
+            return hi_new, fg_cnt, f, g
+        gd = g.dot(d)
+        if f >= f_low or gd >= c2*gdinit:
+            break
+        g_low = g
+        gd_low = gd
+        f_low = f
+        lo = hi
+        hi *= 4.
+    else:
+        return hi/4., fg_cnt, f, g
+
+    fvals = [f_old, f]
+    gvals = [g_old, g]
+    xvals = [lo, hi]
+    
+    for _i in range(20):
+        if f < finit:
+            break
+        stp = xvals[-1]/10.
+        f, g = phi(stp)
+        fg_cnt += 1
+        fvals.append(f)
+        gvals.append(g)
+        xvals.append(stp)
+    else:
+        return xvals[-1], fg_cnt, fvals[-1], gvals[-1]
+    
+    stp = hi
+    ftest = finit + stp*gtest
+    if f < ftest and abs(g.dot(d)) <= c2 * (-gdinit):
+        if verbose >= 99:
+            print('STRONG WOLFE SATISFIED')
+        return stp, fg_cnt, f, g
+
+    mu = PolyRegressor(np.zeros(4))
+    ker = RBF(10., 3.)
+
+    x = np.array(xvals)
+    y = np.array(fvals)
+    gx = np.array([ gs.dot(d) for gs in gvals ])
+
+    try:
+        gp = GaussianProcess(mu, ker, reg=np.clip(max(min(abs(y)), min(abs(gx)))*1e-1, 1e-16, 1e-10))
+        gp.add(x, y, gx)
+    except (np.linalg.LinAlgError, ValueError) as e:
+        warnings.warn(f'Line search error: {e}')
+        indx = len(fvals) - 1 - np.argmin(fvals[::-1])
+    
+        return xvals[indx], fg_cnt, fvals[indx], gvals[indx]
+    
+    default_ker = np.array([1e-10, 1e5])
+    default_mu = np.linalg.lstsq(np.vander(gp.x, 4), gp.y, rcond=None)[0]#np.zeros_like(gp.mu.parameters)
+    for _i in range(20):
+        try:
+            gp.ker.parameters = default_ker.copy()
+            gp.mu.parameters = default_mu.copy()
+            gp.update()
+        except (np.linalg.LinAlgError, ValueError) as e:
+            warnings.warn(f'Line search error: could not initialize hyperparameters')
+            break
+        try:
+            theta = optimize_hyper(gp)
+        except (np.linalg.LinAlgError, ValueError) as e:
+            warnings.warn(f'Line search error: could not optimize hyperparameters')
+            gp.mu.parameters = default_mu.copy()
+            gp.ker.parameters = default_ker.copy()
+            gp.update()
+        #plot_gp(gp, lambda x: phi(x)[0], lambda x: phi(x)[1]@d)
+        try:
+            stp = optimize_gp(gp)
+            df = gp.x - stp
+            hi = np.min(df[df>0.], initial=gp.x.max()-stp)
+            lo = np.max(df[df<=0.])
+            stp = np.clip(stp, (hi-lo)*1e-3 + lo+stp,hi+stp-(hi-lo)*1e-3)
+            f, g, stp_new, fg_new = backNaN(phi, gp.x.min(), stp)
+            if stp_new is None:
+                break
+            fg_cnt += fg_new
+            if stp_new != stp:
+                indx = (gp.x < stp_new)
+                stp = stp_new
+                gp.x = gp.x[indx]
+                gp.y = gp.y[indx]
+                gp.g = gp.g[indx]
+            ftest = finit + stp*gtest
+            if f < ftest and abs(g.dot(d)) <= c2 * (-gdinit):
+                if verbose >= 99:
+                    print('STRONG WOLFE SATISFIED')
+                return stp, fg_cnt, f, g
+            xvals.append(stp)
+            fvals.append(f)
+            gvals.append(g)
+            gp.ker.parameters = default_ker.copy()
+            gp.mu.parameters = default_mu.copy()
+            gp.add(stp, fvals[-1], np.dot(gvals[-1], d))
+        except (np.linalg.LinAlgError, ValueError) as e:
+            warnings.warn(f'Line search error: {e}')
+            break
+    
+    indx = np.argmin(fvals)
+    x_res = xvals[indx]
+    f_res = fvals[indx]
+    g_res = gvals[indx]
+    
+    return x_res, fg_cnt, f_res, g_res
+
+
 if __name__ == '__main__':
 
     x = [[0,0,0,0,1],

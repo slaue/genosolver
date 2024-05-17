@@ -36,7 +36,7 @@
 """
 
 import warnings
-from .bayesopt import line_search_wolfe5 as line_search_wolfe3
+from .bayesopt import line_search_wolfe6 as line_search_wolfe3
 
 class OptimizeResult(dict):
     """
