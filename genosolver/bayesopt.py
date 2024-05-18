@@ -327,7 +327,7 @@ def optimize_gp(gp: GaussianProcess)-> np.ndarray:
         mi = T.mean(axis=1)
         fmi = f(mi)
         gmi = g(mi)
-        if any((abs(gmi) < 1e-6) & (fmi < f0)): break
+        #if any((abs(gmi) < 1e-6) & (fmi < f0)): break
         #print(f'{g(mi)[:10] = }')
         #print(f'{gp.UCB(mi,-2)[mi.shape[0]:][:10] = }')
         T[rows,1*(gmi>0.)] = mi
@@ -624,20 +624,21 @@ def line_search_wolfe6(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
     fvals = [f_low, f]
     gvals = [g_low, g]
     xvals = [lo, hi]
+
+    if f_low >= finit:
+        for _i in range(20):
+            if f < finit:
+                break
+            stp = (xvals[-1]+9*xvals[0])/10.
+            f, g = phi(stp)
+            fg_cnt += 1
+            fvals.append(f)
+            gvals.append(g)
+            xvals.append(stp)
+        else:
+            return xvals[-1], fg_cnt, fvals[-1], gvals[-1]
     
-    for _i in range(20):
-        if f < finit:
-            break
-        stp = xvals[-1]/10.
-        f, g = phi(stp)
-        fg_cnt += 1
-        fvals.append(f)
-        gvals.append(g)
-        xvals.append(stp)
-    else:
-        return xvals[-1], fg_cnt, fvals[-1], gvals[-1]
-    
-    stp = hi
+    stp = xvals[-1]
     ftest = finit + stp*gtest
     if f < ftest and abs(g.dot(d)) <= c2 * (-gdinit):
         if verbose >= 99:
