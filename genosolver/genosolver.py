@@ -167,46 +167,73 @@ class LBFGSB:
             step_max = np.inf
         return step_max
 
-    def line_search(self, x_old, d, step_max, f_old, g_old, quadratic):
-        np = self.np
-        alpha = 0.1
-        beta = 0.5
-        step = min(float(step_max), 1.0)
-        k = 0
-        fun_eval = 0
-        dg = np.dot(g_old, d)
-        if not dg < 0:
-            print(dg)
-            print(d)
-            assert False
+    def line_search(self, x_old, d, step_max, f_old, g_old, ls):
 
-        seen_quadratic = False
-        while True:
+        if ls == 0:
+            step, fg_cnt, f, g = line_search_wolfe4(fg=self.fg, xk=x_old, d=d, 
+                                                    g=g_old, old_fval=f_old, 
+                                                    old_old_fval=None,
+                                                    c1=1e-4, c2=.9, 
+                                                    amax=step_max, np=self.np,
+                                                    verbose=self.param['verbose'])
+        elif ls == 1:
+            step, fg_cnt, f, g = line_search_wolfe3(fg=self.fg, xk=x_old, d=d, 
+                                                    g=g_old, old_fval=f_old, 
+                                                    old_old_fval=None, 
+                                                    c1=1e-4, c2=.9,
+                                                    amax=step_max, np=self.np,
+                                                    verbose=self.param['verbose'])
+        else:
+            quadratic = True
+            np = self.np
+            alpha = 0.1
+            beta = 0.5
+            step = min(float(step_max), 1.0)
+            k = 0
+            fun_eval = 0
+            dg = np.dot(g_old, d)
+            if not dg < 0:
+                print(dg)
+                print(d)
+                assert False
+            
+            seen_quadratic = False
+            while True:
+                x = x_old + step * d
+                f, g = self.fg(x)
+                fun_eval += 1
+                # make sure that function is really quadratic when said so
+                if seen_quadratic:
+                    if np.abs(np.dot(d, g)) > 1E-5:
+                        if self.param['verbose'] >= 10:
+                            print('Function is not quadratic. Use parameter ls=0 instead.')
+                            quadratic = False
+                        self.param['ls'] = 0
+
+                if f <= f_old + alpha * step * dg:
+                    break
+                if k > self.param['max_ls']:
+                    break
+                # quadratic interpolation
+                if quadratic:
+                    a = np.dot(g_old, d)
+                    b = np.dot(g, d)
+                    step *= a / (a - b)
+                    seen_quadratic = True
+                else:
+                    step *= beta
+                k += 1
+
+        if step is None:
+            x = x_old
+            f = f_old
+            g = g_old
+        else:
             x = x_old + step * d
-            f, g = self.fg(x)
-            fun_eval += 1
-            # make sure that function is really quadratic when said so
-            if seen_quadratic:
-                if np.abs(np.dot(d, g)) > 1E-5:
-                    if self.param['verbose'] >= 10:
-                        print('Function is not quadratic. Use parameter ls=0 instead.')
-                    quadratic = False
-                    self.param['ls'] = 0
-
-            if f <= f_old + alpha * step * dg:
-                break
-            if k > self.param['max_ls']:
-                break
-            # quadratic interpolation
-            if quadratic:
-                a = np.dot(g_old, d)
-                b = np.dot(g, d)
-                step *= a / (a - b)
-                seen_quadratic = True
-            else:
-                step *= beta
-            k += 1
-
+            if f is None or g is None:
+                f, g = self.fg(x)
+                fg_cnt += 1
+        
         return f, g, x, step, fun_eval
 
     def two_loop(self, g):
@@ -339,10 +366,7 @@ class LBFGSB:
                     continue
 
             f_old = f
-            if self.param['ls'] == 2:
-                f, g, x, step, fun_eval_ls = self.line_search(x, d, step_max, f, g, quadratic=True)
-            else:
-                f, g, x, step, fun_eval_ls = self.line_search(x, d, step_max, f, g, quadratic=False)
+            f, g, x, step, fun_eval_ls = self.line_search(x, d, step_max, f, g, ls=self.param['ls'])
 
             if f > f_old:
                 print('error')
