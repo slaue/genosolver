@@ -610,6 +610,7 @@ def line_search_wolfe6(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
             return None, fg_cnt, finit, g_old
         if np.isneginf(f):
             return hi_new, fg_cnt, f, g
+        hi = hi_new
         gd = g.dot(d)
         if f >= f_low or gd >= c2*gdinit:
             break
@@ -659,7 +660,7 @@ def line_search_wolfe6(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
     except (np.linalg.LinAlgError, ValueError) as e:
         warnings.warn(f'Line search error: {e}')
         indx = len(fvals) - 1 - np.argmin(fvals[::-1])
-    
+
         return xvals[indx], fg_cnt, fvals[indx], gvals[indx]
     
     default_ker = np.array([1e0, 1e-10])
@@ -687,6 +688,7 @@ def line_search_wolfe6(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
             lo = np.max(df[df<=0.])
             stp = np.clip(stp, (hi-lo)*1e-3 + lo+stp,hi+stp-(hi-lo)*1e-3)
             f, g, stp_new, fg_new = backNaN(phi, gp.x.min(), stp)
+            
             if stp_new is None:
                 break
             fg_cnt += fg_new
@@ -701,6 +703,7 @@ def line_search_wolfe6(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
                 if verbose >= 99:
                     print('STRONG WOLFE SATISFIED')
                 return stp, fg_cnt, f, g
+            
             xvals.append(stp)
             fvals.append(f)
             gvals.append(g)
@@ -715,7 +718,7 @@ def line_search_wolfe6(fg: Callable[[np.ndarray],tuple[float,np.ndarray]],
     x_res = xvals[indx]
     f_res = fvals[indx]
     g_res = gvals[indx]
-    
+
     return x_res, fg_cnt, f_res, g_res
 
 
